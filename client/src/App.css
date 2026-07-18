@@ -1,0 +1,80 @@
+
+
+html,
+body, 
+.col {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  height: 90vh;
+  width: 100vw;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Montserrat', Arial, Helvetica, sans-serif;
+  color:white;
+  background-color: #171C20;
+}
+
+.top-banner {
+  padding: 10px;
+}
+
+h1.top-banner {
+  margin: 46px 0 0 0;
+  font-size: 2.75rem;
+}
+
+button {
+  background-color: #FED402;
+  opacity: 0.96;
+  color: black;
+  margin: 20px 0 5px 0;
+  padding: 5px 10px;
+  border-style: none;
+  border-radius: 8px;
+}
+
+.alert-button {
+	margin: 0;
+}
+
+button:hover {
+  background-color: #171C20;
+  color: white;
+}
+
+input {
+  border-radius: 5px;
+  border-style: none;
+  margin: 63px 10px 0 26px;
+  height: 2rem;
+  width: 15rem;
+  color: #171C20;
+}
+
+.profile-pic {
+	height: 6.75rem;
+}
+
+.brand-name {
+  font-family: 'Montserrat', Arial, Helvetica, sans-serif;
+  font-weight: 800;
+  font-size: 4rem;
+  color: #2c2f33;
+}
+
+.brand-logo {
+  height: 6rem;
+}
+
+.backdrop {
+  height: 50vh;
+  width: 100%;
+}

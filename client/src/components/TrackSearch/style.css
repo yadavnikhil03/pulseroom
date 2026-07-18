@@ -1,0 +1,39 @@
+.track-search-container {
+	padding: 0;
+	margin: 0;
+}
+
+.track-input {
+	margin: 0;
+}
+
+.track-search-btn {
+	width: 10%;
+	margin: 0;
+}
+
+.track-dropdown {
+	max-height: 340px;
+	overflow-y: scroll;
+	position: absolute;
+	right: 0;
+	left: 0;
+	z-index: 1;
+	border-right: 1px solid #fed402;
+	border-bottom: 1px solid #fed402;
+	border-left: 1px solid #fed402;
+	padding: 0;
+	margin: 0;
+}
+
+.track-dropdown-item {
+	background-color: #171c20;
+	color: #fed402;
+	cursor: pointer;
+	position: relative;
+}
+
+.track-dropdown-item:hover {
+	background-color: #fed402;
+	color: #171c20;
+}

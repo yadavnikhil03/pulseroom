@@ -1,0 +1,25 @@
+{
+	"name": "Pulseroom",
+	"short_name": "Pulseroom",
+	"icons": [
+		{
+			"src": "/images/icons/favicon-32x32.png",
+			"sizes": "32x32",
+			"type": "image/png"
+		},
+		{
+			"src": "/images/icons/android-chrome-192x192.png",
+			"sizes": "192x192",
+			"type": "image/png"
+		},
+		{
+			"src": "/images/icons/android-chrome-512x512.png",
+			"sizes": "512x512",
+			"type": "image/png"
+		}
+	],
+	"start_url": "./index.html",
+	"theme_color": "#050505",
+	"background_color": "#050505",
+	"display": "standalone"
+}
