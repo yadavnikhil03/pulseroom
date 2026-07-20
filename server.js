@@ -39,12 +39,7 @@ if (process.env.DEMO_MODE === 'true') {
     .catch(err => console.log(err));
 }
 
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static('client/build'));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '/client/build', 'index.html'));
-  });
-}
+
 
 io.on('connection', socket => {
   console.log('Client connected to server:', socket.id);
