@@ -4,9 +4,9 @@ import API from '../../utils/API';
 import './dev-style.css';
 
 const collections = [
-  { id: 'electronic', name: 'Electric Current', count: 1, accent: '#edff73', description: 'Driving rhythms and after-dark momentum.' },
-  { id: 'ambient', name: 'Ambient Horizons', count: 2, accent: '#8ea1ff', description: 'Spacious textures for a slower shared pulse.' },
-  { id: 'world', name: 'Global Frequencies', count: 2, accent: '#ff8a67', description: 'A cross-city mix built for discovery.' }
+  { id: 'electronic', name: 'Electric Current', count: 7, accent: '#edff73', description: 'Driving rhythms and after-dark momentum.' },
+  { id: 'world', name: 'Global Frequencies', count: 4, accent: '#ff8a67', description: 'A cross-city mix built for discovery.' },
+  { id: 'ambient', name: 'Ambient Horizons', count: 4, accent: '#8ea1ff', description: 'Spacious textures for a slower shared pulse.' }
 ];
 
 const ROOM_ID_PATTERN = /^[A-Z0-9_-]{3,20}$/;
