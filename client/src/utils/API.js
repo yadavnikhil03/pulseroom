@@ -8,6 +8,7 @@ export default {
     title: options.title,
     trackIds: options.trackIds
   }),
+  searchTracks: query => axios.get(`/api/audius/search?q=${encodeURIComponent(query)}`),
   getTracks: roomId => axios.get(`/api/rooms/${roomId}`),
   updatePlayback: (roomId, isPlaying, positionMs) => axios.put(
     `/api/rooms/${roomId}/playback`,
@@ -26,8 +27,10 @@ export default {
   updateSongProgress: (roomId, trackId, progress) => axios.put(
     `/api/rooms/${roomId}/progress/${trackId}/${progress}`
   ),
-  addTrack: (roomId, trackId, trackInfo) => axios.put(`/api/rooms/${roomId}`, {
-    info: trackInfo,
-    spotifyId: trackId
-  })
+  addTrack: (roomId, trackOrId, trackInfo) => {
+    const isTrackObject = trackOrId && typeof trackOrId === 'object';
+    return axios.put(`/api/rooms/${roomId}`, isTrackObject
+      ? { spotifyId: trackOrId.id, track: trackOrId }
+      : { spotifyId: trackOrId, info: trackInfo });
+  }
 };

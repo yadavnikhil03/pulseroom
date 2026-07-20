@@ -1,15 +1,11 @@
 const cover = '/images/icons/pulseroom-logo.svg';
 
 const tracks = [
-  ['demo_track_01', 'Global Pulse', 'SoundHelix Demo Library', 372000, 'electronic', '/audio/demo-track-1.mp3'],
-  ['demo_track_02', 'Night Transit', 'SoundHelix Demo Library', 425000, 'electronic', '/audio/demo-track-2.mp3'],
-  ['demo_track_03', 'Open Horizons', 'SoundHelix Demo Library', 343000, 'ambient', '/audio/demo-track-3.mp3'],
-  ['demo_track_04', 'Tokyo Afterglow', 'Pulseroom Demo Edit', 372000, 'world', '/audio/demo-track-1.mp3'],
-  ['demo_track_05', 'Sahara Drive', 'Pulseroom Demo Edit', 425000, 'world', '/audio/demo-track-2.mp3'],
-  ['demo_track_06', 'Rio Sunrise', 'Pulseroom Demo Edit', 343000, 'world', '/audio/demo-track-3.mp3'],
-  ['demo_track_07', 'Berlin Current', 'Pulseroom Demo Edit', 372000, 'electronic', '/audio/demo-track-1.mp3'],
-  ['demo_track_08', 'Mumbai Monsoon', 'Pulseroom Demo Edit', 425000, 'ambient', '/audio/demo-track-2.mp3'],
-  ['demo_track_09', 'Nordic Skies', 'Pulseroom Demo Edit', 343000, 'ambient', '/audio/demo-track-3.mp3']
+  ['track_01', 'GOTOU寄生獣 - LOCKJAW', 'GOTOU', 165000, 'electronic', '/audio/lockjaw.mp3'],
+  ['track_02', 'No Lie', 'Sean Paul, Dua Lipa', 221000, 'world', '/audio/no-lie.m4a'],
+  ['track_03', 'Udi', 'Aneesh Sarkar, Hruday Poojari', 215000, 'world', '/audio/udi.m4a'],
+  ['track_04', 'YOU HAUNT ME', 'CITIZEN', 218000, 'ambient', '/audio/you-haunt-me.m4a'],
+  ['track_05', 'feel nothing', 'sufr, jaiyash, junedeath', 249000, 'ambient', '/audio/feel-nothing.m4a']
 ].map(([id, name, artist, duration_ms, genre, url]) => ({
   id,
   name,

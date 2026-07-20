@@ -26,6 +26,36 @@ const toQueueTrack = track => ({
   likes: []
 });
 
+const normalizeAudiusTrack = input => {
+  if (!input || input.source !== 'audius') return null;
+  const id = String(input.id || input.spotifyId || '');
+  const sourceId = String(input.sourceId || id.replace(/^audius_/, ''));
+  const url = String(input.url || '');
+  const artists = Array.isArray(input.artists) ? input.artists : [];
+  if (!/^audius_[A-Za-z0-9_-]{1,100}$/.test(id)
+    || !/^[A-Za-z0-9_-]{1,100}$/.test(sourceId)
+    || url !== `/api/audius/tracks/${encodeURIComponent(sourceId)}/stream`
+    || !String(input.name || '').trim()
+    || !String(artists[0] || '').trim()) return null;
+
+  return {
+    id,
+    sourceId,
+    name: String(input.name).trim().slice(0, 160),
+    artists: [String(artists[0]).trim().slice(0, 120)],
+    duration_ms: Math.min(24 * 60 * 60 * 1000, Math.max(1000, Number(input.duration_ms) || 1000)),
+    genre: String(input.genre || 'Audius').trim().slice(0, 60),
+    image: String(input.image || '/images/icons/pulseroom-logo.svg').slice(0, 500),
+    imageMirrors: Array.isArray(input.imageMirrors) ? input.imageMirrors.slice(0, 3).map(String) : [],
+    source: 'audius',
+    url
+  };
+};
+
+const metadataFor = (room, trackId) => findTrack(trackId)
+  || room.addedTracks.find(track => track.spotifyId === trackId)?.metadata
+  || null;
+
 const snapshot = room => {
   const result = clone(room);
   if (result.playback.isPlaying) {
@@ -82,8 +112,10 @@ module.exports = {
   addTrack: (req, res) => {
     const room = ensureRoom(req.params.id, res);
     if (!room) return;
-    const metadata = findTrack(req.body.spotifyId);
-    if (!metadata) return res.status(400).json({ message: 'Unknown demo track.' });
+    const metadata = findTrack(req.body.spotifyId) || normalizeAudiusTrack(req.body.track);
+    if (!metadata || metadata.id !== String(req.body.spotifyId || metadata.id)) {
+      return res.status(400).json({ message: 'Track metadata is invalid or unsupported.' });
+    }
     if (room.addedTracks.some(item => item.spotifyId === metadata.id && !item.played)) {
       return res.status(409).json({ message: `${metadata.name} is already in the upcoming queue.` });
     }
@@ -98,7 +130,7 @@ module.exports = {
     if (!room) return;
     const current = snapshot(room).playback.positionMs;
     const requestedPosition = Number(req.body.positionMs);
-    const duration = findTrack(room.currentTrackId)?.duration_ms || Number.MAX_SAFE_INTEGER;
+    const duration = metadataFor(room, room.currentTrackId)?.duration_ms || Number.MAX_SAFE_INTEGER;
     room.playback.positionMs = Number.isFinite(requestedPosition)
       ? Math.min(duration, Math.max(0, requestedPosition))
       : Math.min(duration, current);

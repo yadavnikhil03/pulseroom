@@ -1,109 +1,113 @@
-import React, { useState } from 'react';
-
+import React, { useCallback, useEffect, useState } from 'react';
+import { Plus, Search, X } from 'lucide-react';
 import InputGroup from 'react-bootstrap/InputGroup';
 import FormControl from 'react-bootstrap/FormControl';
 import ListGroup from 'react-bootstrap/ListGroup';
 import Form from 'react-bootstrap/Form';
-
 import './style.css';
-
-import SpotifyAPI from '../../utils/SpotifyAPI';
 import API from '../../utils/API';
+import localAudio from '../../utils/localAudio';
+
+const useDebounce = (value, delay) => {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debounced;
+};
 
 const TrackSearch = props => {
-	const [input, setInput] = useState('');
-	const [tracks, setTracks] = useState([]);
-	const [display, setDisplay] = useState(false);
-	const [searchIcon, setSearchIcon] = useState(true);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const debouncedQuery = useDebounce(query, 400);
 
-	const handleTrackSelection = async track => {
-		await API.addTrack(
-			props.roomId,
-			track.id,
-			`${track.name} - ${track.artist}`
-		);
-		props.setQueueTrigger(props.queueTrigger ? false : true);
-		searchBtnHandler.close();
-	};
+  const searchTracks = useCallback(async () => {
+    const normalized = debouncedQuery.trim().toLowerCase();
+    if (normalized.length < 2) {
+      setResults([]);
+      setMessage('');
+      return;
+    }
+    const localResults = localAudio.getCatalogue().filter(track => (
+      `${track.name} ${track.artists.join(' ')} ${track.genre}`.toLowerCase().includes(normalized)
+    ));
+    setBusy(true);
+    setMessage('');
+    try {
+      const { data } = await API.searchTracks(debouncedQuery);
+      setResults([...localResults, ...(data.results || [])]);
+      if (data.message) setMessage(data.message);
+    } catch (error) {
+      setResults(localResults);
+      setMessage(error.response?.data?.message || 'Online search is unavailable. Showing matching local tracks.');
+    } finally {
+      setBusy(false);
+    }
+  }, [debouncedQuery]);
 
-	const searchBtnHandler = {
-		search: async e => {
-			e.preventDefault();
+  useEffect(() => {
+    searchTracks();
+  }, [searchTracks]);
 
-			try {
-				if (input) {
-					const { data } = await SpotifyAPI.trackSearch(props.token, input);
-					const tracksArr = [...data.tracks.items].map(track => {
-						return {
-							artist: track.artists[0].name,
-							id: track.id,
-							name: track.name
-						};
-					});
+  const handleTrackSelection = async track => {
+    try {
+      await props.onSelect(track);
+      setQuery('');
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Could not add this track.');
+    }
+  };
 
-					setTracks(tracksArr);
-					setInput('');
-					setDisplay(true);
-					setSearchIcon(false);
-				}
-			} catch (err) {
-				console.log(err);
-			}
-		},
-		close: e => {
-			if (e) e.preventDefault();
-			setDisplay(false);
-			setTracks([]);
-			setSearchIcon(true);
-		}
-	};
+  const clear = () => {
+    setQuery('');
+    setResults([]);
+    setMessage('');
+  };
 
-	return (
-		<div>
-			<Form>
-				<InputGroup>
-					<button
-						className="rounded-right track-search-btn"
-						onClick={e =>
-							searchIcon || input
-								? searchBtnHandler.search(e)
-								: searchBtnHandler.close(e)
-						}>
-						{searchIcon || input ? (
-							<i className="fa fa-search" aria-hidden="true"></i>
-						) : (
-							<i className="fa fa-chevron-down" aria-hidden="true"></i>
-						)}
-					</button>
-
-					<FormControl
-						className="rounded-right track-input"
-						onChange={e => setInput(e.target.value)}
-						value={input}
-						placeholder="Add a Track"
-						aria-describedby="basic-addon1"
-					/>
-				</InputGroup>
-			</Form>
-			{display ? (
-				<div>
-					<ListGroup className="track-dropdown" variant="flush">
-						{tracks[0]
-							? tracks.map(track => (
-									<ListGroup.Item
-										className="track-dropdown-item"
-										key={track.id}
-										id={track.id}
-										onClick={() => handleTrackSelection(track)}>
-										{`${track.name} - ${track.artist}`}
-									</ListGroup.Item>
-							  ))
-							: null}
-					</ListGroup>
-				</div>
-			) : null}
-		</div>
-	);
+  return (
+    <div>
+      <Form onSubmit={e => e.preventDefault()}>
+        <InputGroup>
+          <div className='queue-search-wrap'>
+            <Search size={17} />
+            <FormControl
+              className="track-input"
+              onChange={e => setQuery(e.target.value)}
+              value={query}
+              placeholder="Search for music to add"
+              aria-describedby="track-search-input"
+              autoComplete='off'
+            />
+            {query && <button type='button' className='clear-search' onClick={clear}><X size={16} /></button>}
+          </div>
+        </InputGroup>
+      </Form>
+      {query && (
+        <ListGroup className="track-dropdown" variant="flush">
+          {busy && <ListGroup.Item className="search-status">Searching…</ListGroup.Item>}
+          {message && <ListGroup.Item className="search-status error-message">{message}</ListGroup.Item>}
+          {!busy && !results.length && debouncedQuery.length > 1 && <ListGroup.Item className="search-status">No tracks found for “{debouncedQuery}”.</ListGroup.Item>}
+          {results.map(track => (
+            <ListGroup.Item
+              action
+              className="track-dropdown-item"
+              key={track.id}
+              onClick={() => handleTrackSelection(track)}>
+              <img src={track.image} alt={track.name} className='search-result-art' />
+              <span>
+                <strong>{track.name}</strong>
+                <small>{track.artists[0]}</small>
+              </span>
+              <Plus size={17} />
+            </ListGroup.Item>
+          ))}
+        </ListGroup>
+      )}
+    </div>
+  );
 };
 
 export default TrackSearch;

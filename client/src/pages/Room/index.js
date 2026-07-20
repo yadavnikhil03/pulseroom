@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import queryString from 'query-string';
 import { io } from 'socket.io-client';
-import { ArrowLeft, Copy, Heart, Music2, Pause, Play, Plus, Radio, Search, SkipForward, Users, Volume2, VolumeX, WifiOff } from 'lucide-react';
+import { ArrowLeft, Copy, Heart, Music2, Pause, Play, Radio, SkipForward, Users, Volume2, VolumeX, WifiOff } from 'lucide-react';
 import { apiURL } from '../../App.config';
 import API from '../../utils/API';
 import localAudio from '../../utils/localAudio';
+import TrackSearch from '../../components/TrackSearch';
 import './style.css';
 
 const formatTime = ms => {
@@ -32,7 +33,6 @@ const Room = () => {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [message, setMessage] = useState('');
-  const [query, setQuery] = useState('');
   const [progress, setProgress] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [volume, setVolume] = useState(1);
@@ -42,19 +42,11 @@ const Room = () => {
   const progressRef = useRef(null);
 
   const currentQueueTrack = room?.addedTracks.find(item => item.spotifyId === room.currentTrackId);
-  const currentTrack = currentQueueTrack?.metadata || localAudio.findById(room?.currentTrackId);
+  const currentTrack = room?.addedTracks.find(item => item.spotifyId === room.currentTrackId)?.metadata;
   const currentUserPresence = roomUsers.find(roomUser => roomUser.id === user.id);
   const isHost = Boolean(currentUserPresence?.isHost);
   const liked = Boolean(currentQueueTrack?.likes.includes(user.id));
-  const catalogue = localAudio.getCatalogue();
-  const queuedTrackIds = new Set(room?.addedTracks.map(item => item.spotifyId));
-  const normalizedQuery = query.trim().toLowerCase();
-  const searchResults = normalizedQuery
-    ? catalogue.filter(track => (
-      !queuedTrackIds.has(track.id)
-      && `${track.name} ${track.artists.join(' ')} ${track.genre}`.toLowerCase().includes(normalizedQuery)
-    ))
-    : [];
+
 
   const loadRoom = async (quiet = false) => {
     if (!roomId) { setNotFound(true); setLoading(false); return; }
@@ -111,10 +103,10 @@ const Room = () => {
     let cancelled = false;
     const synchronizeAudio = async () => {
       try {
+        const audioState = localAudio.getState();
         if (soundEnabled && room?.playback?.isPlaying && currentTrack) {
-          const audioState = localAudio.getState();
           if (audioState.trackId !== currentTrack.id) {
-            await localAudio.play(currentTrack.id, room.playback.positionMs);
+            await localAudio.play(currentTrack, room.playback.positionMs);
           } else if (Math.abs(audioState.positionMs - room.playback.positionMs) > 1500) {
             await localAudio.seek(room.playback.positionMs);
             await localAudio.resume();
@@ -149,6 +141,33 @@ const Room = () => {
     return () => { localAudio.onEnded(null); };
   }, [soundEnabled, isHost, room?.playback?.isPlaying, currentTrack?.id]);
 
+  const handleKeyDown = event => {
+    const isSafe = !/input|textarea|select/i.test(event.target.tagName) && !event.target.isContentEditable;
+    if (!isSafe) return;
+
+    let handled = false;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      const newProgress = (localAudio.getState().positionMs || progress) + (event.key === 'ArrowLeft' ? -10000 : 10000);
+      handleSeek(newProgress, true);
+      handled = true;
+    } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      const newVolume = volume + (event.key === 'ArrowUp' ? 0.05 : -0.05);
+      setVolume(Math.max(0, Math.min(1, newVolume)));
+      setMessage(`Volume ${Math.round(Math.max(0, Math.min(1, newVolume)) * 100)}%`);
+      handled = true;
+    }
+
+    if (handled) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isHost, room, progress, volume, soundEnabled, currentTrack]);
+
   const announce = eventName => socket?.emit(eventName, { roomId });
   const errorMessage = (error, fallback) => error?.response?.data?.message || error?.message || fallback;
 
@@ -156,7 +175,7 @@ const Room = () => {
     if (!isHost || !room || !currentTrack) return;
     const shouldPlay = !room.playback.isPlaying;
     try {
-      if (shouldPlay) await localAudio.play(currentTrack.id, progress);
+      if (shouldPlay) await localAudio.play(currentTrack, progress);
       else localAudio.pause();
       setSoundEnabled(true);
       const { data } = await API.updatePlayback(roomId, shouldPlay, progress);
@@ -193,8 +212,9 @@ const Room = () => {
   };
 
   const addTrack = async track => {
+    if (!track || !track.id) return;
     try {
-      const { data } = await API.addTrack(roomId, track.id, `${track.name} - ${track.artists[0]}`);
+      const { data } = await API.addTrack(roomId, track);
       setRoom(data);
       setMessage(`${track.name} added to the shared queue.`);
       announce('queue_update');
@@ -218,7 +238,7 @@ const Room = () => {
         localAudio.pause();
         setSoundEnabled(false);
       } else {
-        if (room.playback.isPlaying && currentTrack) await localAudio.play(currentTrack.id, progress);
+        if (room.playback.isPlaying && currentTrack) await localAudio.play(currentTrack, progress);
         setSoundEnabled(true);
       }
     } catch (error) {
@@ -226,14 +246,18 @@ const Room = () => {
     }
   };
 
-  const handleSeek = async newProgress => {
-    if (!isHost || !currentTrack) return;
+  const handleSeek = async (newProgress, fromShortcut = false) => {
+    if (!isHost || !currentTrack) {
+      if (fromShortcut) setMessage('Only the host can seek the track for the room.');
+      return;
+    }
     setSeeking(true);
     setProgress(newProgress);
     try {
       await localAudio.seek(newProgress);
       const { data } = await API.updatePlayback(roomId, room.playback.isPlaying, newProgress);
       setRoom(data);
+      setProgress(data.playback.positionMs || 0);
       announce('playback_update');
     } catch (error) {
       setMessage(errorMessage(error, 'Could not seek this track.'));
@@ -308,19 +332,12 @@ const Room = () => {
               <Volume2 size={16} />
               <input id='volume-slider' type='range' min='0' max='1' step='0.05' value={volume} onChange={handleVolumeChange} aria-label='Volume' />
             </div>
-            <span className='host-hint'>{isHost ? 'Host · controls sync to all' : 'Listener · press Audio on to hear the host'}</span>
+            <span className='host-hint'>{isHost ? 'Host · ←/→ seek 10s · ↑/↓ volume 5%' : 'Listener · ↑/↓ volume 5% · host controls seeking'}</span>
           </div>
         </article>
         <aside className='queue-panel'>
           <div className='queue-heading'><div><p className='room-kicker'>Add music</p><h2>Shared queue</h2></div><span>{room.addedTracks.length} tracks</span></div>
-          <div className='queue-search-wrap'><Search size={17} /><input id='local-track-search' value={query} onChange={event => setQuery(event.target.value)} placeholder='Search the local catalogue' autoComplete='off' /></div>
-          {normalizedQuery && <div className='search-results catalogue-results'>
-            {searchResults.length ? searchResults.map(track => (
-              <button key={track.id} type='button' onClick={() => { addTrack(track); setQuery(''); }}>
-                <span><strong>{track.name}</strong><small>{track.artists[0]} · {track.genre}</small></span><Plus size={17} />
-              </button>
-            )) : <p className='search-empty'>No available tracks match “{query.trim()}”.</p>}
-          </div>}
+          <TrackSearch onSelect={addTrack} />
           <ol className='queue-list'>
             {room.addedTracks.map((item, index) => (
               <li key={item._id} className={`${item.nowPlaying ? 'current' : ''} ${item.played ? 'played' : ''}`}>

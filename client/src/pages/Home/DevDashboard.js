@@ -4,9 +4,9 @@ import API from '../../utils/API';
 import './dev-style.css';
 
 const collections = [
-  { id: 'electronic', name: 'Electric Current', count: 3, accent: '#edff73', description: 'Driving rhythms and after-dark momentum.' },
-  { id: 'ambient', name: 'Ambient Horizons', count: 3, accent: '#8ea1ff', description: 'Spacious textures for a slower shared pulse.' },
-  { id: 'world', name: 'Global Frequencies', count: 3, accent: '#ff8a67', description: 'A cross-city mix built for discovery.' }
+  { id: 'electronic', name: 'Electric Current', count: 1, accent: '#edff73', description: 'Driving rhythms and after-dark momentum.' },
+  { id: 'ambient', name: 'Ambient Horizons', count: 2, accent: '#8ea1ff', description: 'Spacious textures for a slower shared pulse.' },
+  { id: 'world', name: 'Global Frequencies', count: 2, accent: '#ff8a67', description: 'A cross-city mix built for discovery.' }
 ];
 
 const ROOM_ID_PATTERN = /^[A-Z0-9_-]{3,20}$/;
@@ -22,6 +22,16 @@ const roomIdFromInvite = value => {
     return normalizeRoomId(parsed.searchParams.get('room_id'));
   } catch (error) {
     return normalizeRoomId(input);
+  }
+};
+
+const copyValue = async (value, successMessage) => {
+  try {
+    await navigator.clipboard.writeText(value);
+    return { copied: true, message: successMessage };
+  } catch (error) {
+    window.prompt('Copy this value:', value);
+    return { copied: false, message: 'Could not copy automatically. See prompt.' };
   }
 };
 
@@ -84,10 +94,12 @@ const DevDashboard = ({ user }) => {
     setBusyAction('create-room');
     setMessage('');
     try {
-      await API.createRoom(roomId, selectedCollection, { title });
-      setCreatedRoom(roomId);
+      const { data } = await API.createRoom(roomId, selectedCollection, { title });
+      const finalRoomId = data.room_id;
+      setCreatedRoom(finalRoomId);
+      const { copied, message: copyMessage } = await copyValue(finalRoomId, 'Room ID copied. Share it with another listener.');
       setMessageType('success');
-      setMessage(`${title} is live. Copy the invite link or enter the room now.`);
+      setMessage(copied ? `“${title}” is live! ${copyMessage}` : `“${title}” is live! Copy the Room ID below.`);
       await refreshRooms();
     } catch (error) {
       setMessageType('error');
@@ -125,18 +137,14 @@ const DevDashboard = ({ user }) => {
     joinRoom(null, invite);
   };
 
-  const copyValue = async (value, successMessage) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setMessageType('success');
-      setMessage(successMessage);
-    } catch (error) {
-      window.prompt('Copy this value:', value);
-    }
-  };
-
-  const copyRoom = roomId => copyValue(roomUrl(roomId), 'Invite link copied. Share it with another listener.');
-  const copyRoomId = roomId => copyValue(roomId, 'Room ID copied. Share it with another listener.');
+  const copyRoom = roomId => copyValue(roomUrl(roomId), 'Invite link copied. Share it with another listener.').then(({ message }) => {
+    setMessageType('success');
+    setMessage(message);
+  });
+  const copyRoomId = roomId => copyValue(roomId, 'Room ID copied. Share it with another listener.').then(({ message }) => {
+    setMessageType('success');
+    setMessage(message);
+  });
 
   return (
     <main className='demo-lobby'>
@@ -157,7 +165,7 @@ const DevDashboard = ({ user }) => {
         </div>
         <div className='demo-lobby-summary' aria-label='Lobby summary'>
           <div><strong>{rooms.length}</strong><span>Active {rooms.length === 1 ? 'room' : 'rooms'}</span></div>
-          <div><strong>09</strong><span>Local tracks</span></div>
+          <div><strong>05</strong><span>Local tracks</span></div>
           <div><strong>Live</strong><span>Socket sync</span></div>
         </div>
       </section>
@@ -168,7 +176,7 @@ const DevDashboard = ({ user }) => {
         <div className='create-workspace'>
           <div className='workspace-heading'>
             <div><p className='panel-kicker'>01 · Create a room</p><h2 id='collections-heading'>Choose your sound</h2></div>
-            <p>Three tracks are queued automatically.</p>
+            <p>Your selected collection is queued automatically.</p>
           </div>
           <div className='demo-lobby-grid' aria-labelledby='collections-heading'>
             {collections.map((collection, index) => (

@@ -1,6 +1,4 @@
-process.removeAllListeners('warning');
 require('dotenv').config();
-
 const express = require('express'),
   morgan = require('morgan'),
   path = require('path'),
