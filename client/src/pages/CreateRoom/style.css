@@ -1,0 +1,233 @@
+/* --- Base Page Layout --- */
+.create-room-page {
+  background-color: #050505;
+  color: #ffffff;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 100vh;
+  padding: 40px 6%;
+  display: flex;
+  flex-direction: column;
+}
+
+.create-room-layout {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 60px;
+  flex-grow: 1;
+  align-items: center;
+}
+
+/* --- Left Column: Title & Sound Cards --- */
+.create-room-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.create-room-title {
+  font-size: clamp(3rem, 6vw, 4.5rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  margin-bottom: 12px;
+}
+
+.create-room-title-accent {
+  color: #DFFF00;
+}
+
+.create-room-subtitle {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: #a0a0a0;
+  margin-bottom: 32px;
+}
+
+.sound-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+/* --- Sound Card Component --- */
+.sound-card {
+  background: #121212;
+  border: 1px solid #282828;
+  border-radius: 16px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.sound-card:hover {
+  transform: translateY(-8px);
+  border-color: var(--card-accent);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.sound-card-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--card-gradient);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: 0;
+  filter: blur(50px);
+}
+
+.sound-card:hover .sound-card-glow {
+  opacity: 0.2;
+}
+
+.sound-card-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.sound-card-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 16px 0 8px;
+}
+
+.sound-card-desc {
+  font-size: 0.9rem;
+  color: #a0a0a0;
+  line-height: 1.5;
+  flex-grow: 1;
+}
+
+.sound-card-btn {
+  background: var(--card-accent);
+  color: #050505;
+  border: none;
+  border-radius: 50px;
+  padding: 10px 20px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: transform 0.2s ease;
+}
+
+.sound-card-btn:hover {
+  transform: scale(1.05);
+}
+
+/* --- Right Column: Join Form --- */
+.create-room-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.join-room-form {
+  background: #121212;
+  border: 1px solid #282828;
+  border-radius: 16px;
+  padding: 32px;
+  width: 100%;
+  max-width: 450px;
+}
+
+.join-room-label {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.join-room-hint {
+  font-size: 0.9rem;
+  color: #a0a0a0;
+  margin-bottom: 24px;
+}
+
+.join-room-input-row {
+  display: flex;
+  flex-direction: column;
+}
+
+.join-room-input {
+  background: #282828;
+  border: 1px solid #404040;
+  border-radius: 8px;
+  color: white;
+  padding: 14px;
+  font-size: 1rem;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.join-room-btn {
+  background: #DFFF00;
+  color: #050505;
+  border: none;
+  border-radius: 8px;
+  padding: 14px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.join-room-btn:hover {
+  background: #B0E000;
+}
+
+
+/* --- Top Stats Display --- */
+.stats-display {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 60px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #282828;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #a0a0a0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-divider {
+  width: 1px;
+  background-color: #282828;
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 1200px) {
+  .create-room-layout {
+    grid-template-columns: 1fr;
+  }
+  .create-room-right {
+    justify-content: flex-start;
+    margin-top: 40px;
+  }
+}
+
+@media (max-width: 768px) {
+  .sound-cards-grid {
+    grid-template-columns: 1fr;
+  }
+  .stats-display {
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+}

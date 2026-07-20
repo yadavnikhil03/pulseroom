@@ -4,8 +4,9 @@ import { ArrowRight, AudioLines, Menu, X } from 'lucide-react';
 import { apiURL } from '../../App.config';
 import './style.css';
 
-const SPOTIFY_LOGIN_URL = `${apiURL}/api/spotify/login`;
-
+const SPOTIFY_LOGIN_URL = process.env.NODE_ENV === 'production'
+  ? `${apiURL}/api/spotify/login`
+  : 'http://127.0.0.1:8888/api/spotify/login';
 
 const navLinks = [
   { label: 'Home', href: '/' },

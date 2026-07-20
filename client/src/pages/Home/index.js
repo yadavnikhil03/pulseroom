@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import queryString from 'query-string';
+import { Link } from 'react-router-dom';
 
 import SpotifyDashboard from './DevDashboard';
 import spotifyAuth from '../../utils/spotifyAuth';
 import SpotifyAPI from '../../utils/SpotifyAPI';
 import './style.css';
+import './Loading.css';
 
 const Home = () => {
   const [user, setUser] = useState(null);
@@ -51,7 +53,7 @@ const Home = () => {
         <div className='pulseroom-loader-container'>
           {[...Array(5)].map((_, i) => <div key={i} className='pulseroom-bar' />)}
         </div>
-        <h1>Connecting to Pulseroom…</h1>
+        <h1 className='loading-text-header'>Connecting to Pulseroom…</h1>
         <p>Authenticating your Spotify session and preparing the lobby.</p>
       </div>
     );
@@ -71,8 +73,22 @@ const Home = () => {
     );
   }
 
-  if (user && playlists) {
-    return <SpotifyDashboard user={user} playlists={playlists} initialPlayerReady={playerReady} />;
+  if (user) { // Simplified condition, we only need the user to show the welcome message
+    return (
+      <div className="home-container">
+        <div className="home-hero">
+          <h1 className="home-banner">
+            Welcome, <span className="welcome-username">{user.name}</span>
+          </h1>
+          <p className="home-subtitle">
+            Create a listening room, share the link, and enjoy music together.
+          </p>
+          <Link to="/create" className="notice-action-btn" style={{fontSize: '1.1rem', padding: '14px 32px'}}>
+            Start a Room
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return null;

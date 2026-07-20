@@ -161,34 +161,36 @@
 }
 
 .home-hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   text-align: center;
-  margin-bottom: 48px;
+  min-height: 80vh; /* Make it take up most of the viewport */
+  padding: 40px 20px;
+  animation: fadeSlideUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .home-banner {
-  font-size: clamp(2.4rem, 5vw, 3.8rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  margin-bottom: 12px;
+  font-family: var(--font-geist);
+  font-size: clamp(3.5rem, 7vw, 5.5rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  margin-bottom: 16px;
   color: #ffffff;
-}
-
-.welcome-brand {
-  background: linear-gradient(135deg, #00d4ff 0%, #8a2be2 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  line-height: 1.1;
 }
 
 .welcome-username {
-  color: #1db954;
+  color: var(--lime);
 }
 
 .home-subtitle {
-  font-size: 1.15rem;
-  color: rgba(255, 255, 255, 0.65);
-  max-width: 650px;
-  margin: 0 auto 32px;
+  font-family: var(--font-sans);
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 550px;
+  margin: 0 auto 40px;
   line-height: 1.6;
 }
 
@@ -325,12 +327,18 @@
 .demo-lobby.is-loading,
 .demo-lobby.is-error {
   min-height: 100vh;
+  width: 100vw;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 40px 20px;
+  padding: 20px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  background: #050505;
 }
 
 .demo-lobby.is-loading h1 {
@@ -346,6 +354,11 @@
   color: #888888;
   line-height: 1.6;
   max-width: 380px;
+}
+
+.loading-text-header {
+  width: 100%;
+  text-align: center !important;
 }
 
 .demo-lobby.is-error h1 {
@@ -412,8 +425,8 @@
 }
 
 .notice-action-btn {
-  background: #1db954;
-  color: #050505;
+  background: var(--lime);
+  color: var(--black);
   border: none;
   font-weight: 700;
   font-size: 0.85rem;

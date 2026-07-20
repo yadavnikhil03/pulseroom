@@ -5,6 +5,7 @@ import Login from './pages/Login/index';
 import Home from './pages/Home/index';
 import Room from './pages/Room/index';
 import About from './pages/About/index';
+import CreateRoom from './pages/CreateRoom/index';
 
 import './App.css';
 
@@ -16,6 +17,7 @@ function App() {
         <Route path='/home' element={<Home />} />
         <Route path='/room' element={<Room />} />
         <Route path='/about' element={<About />} />
+        <Route path='/create' element={<CreateRoom />} />
       </Routes>
     </Router>
   );
