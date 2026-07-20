@@ -1,3 +1,4 @@
+console.log('[DEBUG] server.js: Script execution started.');
 require('dotenv').config();
 const express = require('express'),
   cors = require('cors'),
@@ -9,6 +10,8 @@ const express = require('express'),
   routes = require('./routes'),
   handlers = require('./handlers');
 
+console.log('[DEBUG] server.js: Dependencies loaded.');
+
 const app = express();
 const port = process.env.PORT || 8888;
 const server = http.createServer(app);
@@ -16,10 +19,15 @@ const io = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
+console.log('[DEBUG] server.js: Express app and server created.');
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 const allowedOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000'];
-if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
+if (process.env.FRONTEND_URL) {
+  console.log(`[DEBUG] server.js: Adding FRONTEND_URL to allowed origins: ${process.env.FRONTEND_URL}`);
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
 app.use(cors({
   origin: allowedOrigins,
   credentials: true
@@ -28,15 +36,19 @@ app.use(morgan('tiny'));
 
 app.use(routes);
 
+console.log('[DEBUG] server.js: Middleware and routes configured.');
+
 if (process.env.DEMO_MODE === 'true') {
-  console.log('Demo mode enabled: using in-memory room storage.');
+  console.log('[DEBUG] server.js: Demo mode enabled. Skipping database connection.');
 } else {
+  console.log('[DEBUG] server.js: Attempting to connect to database...');
   mongoose
     .connect(process.env.MONGODB_ATLAS_URI || 'mongodb://localhost/pulseroom', {
       useNewUrlParser: true, 
       useUnifiedTopology: true
     })
-    .catch(err => console.log(err));
+    .then(() => console.log('[DEBUG] server.js: Database connection successful.'))
+    .catch(err => console.error('[DEBUG] server.js: Database connection FAILED.', err));
 }
 
 
@@ -82,6 +94,6 @@ io.on('connection', socket => {
   });
 });
 
-console.log(`Listening on port ${port}.`);
+console.log(`[DEBUG] server.js: Socket.IO configured. Starting server on port ${port}.`);
 
 server.listen(port);
