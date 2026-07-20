@@ -1,13 +1,21 @@
 {
-  "version": 2,
-
-  "routes": [
+  "services": {
+    "frontend": {
+      "root": "client/"
+    },
+    "backend": {
+      "root": ".",
+      "entrypoint": "server.js"
+    }
+  },
+  "rewrites": [
     {
-      "handle": "filesystem"
+      "source": "/api/(.*)",
+      "destination": { "service": "backend" }
     },
     {
-      "src": "/.*",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": { "service": "frontend" }
     }
   ]
 }
