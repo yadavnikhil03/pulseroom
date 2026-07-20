@@ -1,5 +1,4 @@
 const router = require('express').Router();
-const axios = require('axios');
 
 const JAMENDO_API_URL = 'https://api.jamendo.com/v3.0';
 
@@ -18,15 +17,19 @@ router.get('/search', async (req, res) => {
   }
 
   try {
-    const { data } = await axios.get(`${JAMENDO_API_URL}/tracks/`, {
-      params: {
-        client_id: clientId,
-        format: 'json',
-        limit,
-        search,
-        imagesize
-      }
+    const query = new URLSearchParams({
+      client_id: clientId,
+      format: 'json',
+      limit: String(limit),
+      search: String(search),
+      imagesize: String(imagesize)
     });
+    const response = await fetch(`${JAMENDO_API_URL}/tracks/?${query}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(502).json({ message: data.headers?.error_message || 'Jamendo API request failed.' });
+    }
 
     if (data.headers.status !== 'success') {
       return res.status(502).json({ message: data.headers.error_message || 'Jamendo API returned an error.' });
@@ -47,8 +50,7 @@ router.get('/search', async (req, res) => {
 
   } catch (error) {
     res.status(500).json({
-      message: error.message,
-      detail: error.response?.data
+      message: error.message
     });
   }
 });

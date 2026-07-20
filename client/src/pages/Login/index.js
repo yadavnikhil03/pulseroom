@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight, AudioLines, Menu, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowRight, AudioLines, Copy, Link2, Menu, Radio, X } from 'lucide-react';
 
 import './style.css';
 
@@ -15,21 +14,35 @@ const navLinks = [
 
 function Login() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
+  const howItWorksTrigger = useRef(null);
 
   useEffect(() => {
     const closeOnEscape = event => {
-      if (event.key === 'Escape') setMobileMenuOpen(false);
+      if (event.key !== 'Escape') return;
+      setMobileMenuOpen(false);
+      setHowItWorksOpen(false);
     };
 
     document.addEventListener('keydown', closeOnEscape);
-    document.body.style.overflow = mobileMenuOpen ? 'hidden' : '';
+    document.body.style.overflow = mobileMenuOpen || howItWorksOpen ? 'hidden' : '';
 
     return () => {
       document.removeEventListener('keydown', closeOnEscape);
       document.body.style.overflow = '';
     };
-  }, [mobileMenuOpen]);
+  }, [mobileMenuOpen, howItWorksOpen]);
+
+  const openHowItWorks = () => {
+    setMobileMenuOpen(false);
+    setHowItWorksOpen(true);
+  };
+
+  const closeHowItWorks = () => {
+    setHowItWorksOpen(false);
+    window.requestAnimationFrame(() => howItWorksTrigger.current?.focus());
+  };
 
   return (
     <main className='landing-page'>
@@ -99,11 +112,32 @@ function Login() {
             <a id='explore-pulseroom' href={DEMO_URL} className='landing-primary'>
               Launch Local Demo <ArrowRight size={18} />
             </a>
-            <Link to='/about' className='landing-secondary'>How it works</Link>
+            <button ref={howItWorksTrigger} id='how-it-works-trigger' type='button' className='landing-secondary' onClick={openHowItWorks}>How it works</button>
           </div>
         </div>
 
       </section>
+
+      {howItWorksOpen && <div className='how-modal-backdrop' onMouseDown={event => { if (event.target === event.currentTarget) closeHowItWorks(); }}>
+        <section className='how-modal' role='dialog' aria-modal='true' aria-labelledby='how-modal-title' aria-describedby='how-modal-description'>
+          <header className='how-modal-header'>
+            <div><p>Local Demo · No Spotify required</p><h2 id='how-modal-title'>One room. One invite. One shared pulse.</h2></div>
+            <button id='close-how-it-works' type='button' onClick={closeHowItWorks} aria-label='Close how it works'><X size={21} /></button>
+          </header>
+          <div className='how-modal-body'>
+            <div className='how-modal-copy'>
+              <p id='how-modal-description'>Pulseroom keeps a shared queue and playback state synchronized between every browser tab in the room.</p>
+              <ol className='how-steps'>
+                <li><span><Radio size={18} /></span><div><strong>Create</strong><p>Choose a sound collection, name the room, and create it. Pulseroom prepares the first three tracks.</p></div></li>
+                <li><span><Link2 size={18} /></span><div><strong>Invite</strong><p>Copy one invite link. A listener pastes it in the lobby and enters automatically.</p></div></li>
+                <li><span><Copy size={18} /></span><div><strong>Listen together</strong><p>The host controls play, pause, seek, and skip while listeners hear the synchronized local audio.</p></div></li>
+              </ol>
+              <div className='how-modal-actions'><a id='modal-launch-demo' href={DEMO_URL}>Create a room <ArrowRight size={17} /></a><a id='modal-read-more' href='/about'>Read more</a></div>
+            </div>
+            <figure className='how-modal-visual'><img src='https://raw.githubusercontent.com/yadavnikhil03/pulseroom/main/readme/pulseroom-app-flow.png' alt='Pulseroom application flow from room creation to synchronized listening' /><figcaption>Original Pulseroom application flow</figcaption></figure>
+          </div>
+        </section>
+      </div>}
 
       <footer className='landing-proof-strip'>
         <span>Local catalogue</span>

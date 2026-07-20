@@ -9,9 +9,21 @@ const collections = [
   { id: 'world', name: 'Global Frequencies', count: 3, accent: '#ff8a67', description: 'A cross-city mix built for discovery.' }
 ];
 
-const normalizeRoomId = value => value.trim().toUpperCase();
+const ROOM_ID_PATTERN = /^[A-Z0-9_-]{3,20}$/;
+const normalizeRoomId = value => String(value || '').trim().toUpperCase();
+const sanitizeRoomId = value => normalizeRoomId(value).replace(/[^A-Z0-9_-]/g, '').slice(0, 20);
 const roomUrl = roomId => `${window.location.origin}/room?access_token=dev_mock_token&room_id=${roomId}`;
 const makeRoomId = () => Math.random().toString(36).slice(2, 8).toUpperCase();
+const roomIdFromInvite = value => {
+  const input = String(value || '').trim();
+  if (!input) return '';
+  try {
+    const parsed = new URL(input);
+    return normalizeRoomId(parsed.searchParams.get('room_id'));
+  } catch (error) {
+    return normalizeRoomId(input);
+  }
+};
 
 const DevDashboard = ({ user }) => {
   const [roomInput, setRoomInput] = useState('');
@@ -57,21 +69,25 @@ const DevDashboard = ({ user }) => {
     if (!selectedCollection) return;
 
     const title = roomName.trim();
+    const roomId = normalizeRoomId(draftRoomId);
     if (title.length < 2) {
       setMessageType('error');
       setMessage('Give your room a name with at least 2 characters.');
+      return;
+    }
+    if (!ROOM_ID_PATTERN.test(roomId)) {
+      setMessageType('error');
+      setMessage('Room ID must be 3–20 letters, numbers, dashes, or underscores.');
       return;
     }
 
     setBusyAction('create-room');
     setMessage('');
     try {
-      const roomId = normalizeRoomId(draftRoomId);
       await API.createRoom(roomId, selectedCollection, { title });
       setCreatedRoom(roomId);
-      setRoomInput(roomId);
       setMessageType('success');
-      setMessage(`${title} is live. Enter the room or copy its invite link.`);
+      setMessage(`${title} is live. Copy the invite link or enter the room now.`);
       await refreshRooms();
     } catch (error) {
       setMessageType('error');
@@ -81,12 +97,12 @@ const DevDashboard = ({ user }) => {
     }
   };
 
-  const joinRoom = async event => {
-    event.preventDefault();
-    const roomId = normalizeRoomId(roomInput);
-    if (!roomId) {
+  const joinRoom = async (event, inviteValue = roomInput) => {
+    event?.preventDefault();
+    const roomId = roomIdFromInvite(inviteValue);
+    if (!ROOM_ID_PATTERN.test(roomId)) {
       setMessageType('error');
-      setMessage('Enter a room ID first.');
+      setMessage('Enter a valid invite link or Room ID.');
       return;
     }
     setBusyAction('join');
@@ -96,21 +112,31 @@ const DevDashboard = ({ user }) => {
       window.location.assign(roomUrl(roomId));
     } catch (error) {
       setMessageType('error');
-      setMessage(`Room ${roomId} was not found. Rooms reset when the server restarts.`);
+      setMessage('This Room ID or invite link is invalid, or the room has expired.');
       setBusyAction('');
     }
   };
 
-  const copyRoom = async () => {
-    const url = roomUrl(createdRoom);
+  const pasteAndJoin = event => {
+    const invite = event.clipboardData.getData('text');
+    if (!invite) return;
+    event.preventDefault();
+    setRoomInput(invite);
+    joinRoom(null, invite);
+  };
+
+  const copyValue = async (value, successMessage) => {
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(value);
       setMessageType('success');
-      setMessage('Room link copied. Open it in a second tab to demonstrate live sync.');
+      setMessage(successMessage);
     } catch (error) {
-      window.prompt('Copy this room link:', url);
+      window.prompt('Copy this value:', value);
     }
   };
+
+  const copyRoom = roomId => copyValue(roomUrl(roomId), 'Invite link copied. Share it with another listener.');
+  const copyRoomId = roomId => copyValue(roomId, 'Room ID copied. Share it with another listener.');
 
   return (
     <main className='demo-lobby'>
@@ -165,27 +191,27 @@ const DevDashboard = ({ user }) => {
             {!createdRoom ? <>
               <div className='room-setup-fields'>
                 <label htmlFor='room-setup-name'><span>Room name</span><input id='room-setup-name' value={roomName} onChange={event => setRoomName(event.target.value)} maxLength='48' placeholder='e.g. Friday Night Mix' /></label>
-                <label htmlFor='room-setup-id'><span>Invite code</span><div className='room-code-field'><input id='room-setup-id' value={draftRoomId} readOnly /><button id='regenerate-room-id' type='button' onClick={() => setDraftRoomId(makeRoomId())} aria-label='Generate a new room ID'><RefreshCw size={16} /></button></div></label>
+                <label htmlFor='room-setup-id'><span>Private Room ID</span><div className='room-code-field'><input id='room-setup-id' value={draftRoomId} onChange={event => setDraftRoomId(sanitizeRoomId(event.target.value))} minLength='3' maxLength='20' pattern='[A-Za-z0-9_-]{3,20}' placeholder='e.g. FRIDAY_MIX' autoComplete='off' /><button id='regenerate-room-id' type='button' onClick={() => setDraftRoomId(makeRoomId())} aria-label='Generate a new Room ID' title='Generate another ID'><RefreshCw size={16} /></button></div><small className='room-id-help'>Only you see this during setup. Share it after creation if you want someone to join.</small></label>
               </div>
-              <div className='room-setup-footer'><p>Three tracks will be queued automatically. You can add more inside the room.</p><button id='confirm-create-room' type='submit' disabled={busyAction === 'create-room'}>{busyAction === 'create-room' ? <RefreshCw className='is-spinning' size={17} /> : <Radio size={17} />}{busyAction === 'create-room' ? 'Creating room…' : 'Create & continue'}</button></div>
-            </> : <div className='created-room-result'><div><strong>{roomName}</strong><span>Room code · {createdRoom}</span></div><div className='created-room-actions'><button id='copy-created-room-link' type='button' onClick={copyRoom}><Copy size={17} /> Copy invite</button><a id='enter-created-room-primary' href={roomUrl(createdRoom)}>Enter room <ArrowRight size={17} /></a></div></div>}
+              <div className='room-setup-footer'><p>Others can join using either your Room ID or the invite link generated after creation.</p><button id='confirm-create-room' type='submit' disabled={busyAction === 'create-room'}>{busyAction === 'create-room' ? <RefreshCw className='is-spinning' size={17} /> : <Radio size={17} />}{busyAction === 'create-room' ? 'Creating room…' : 'Create room'}</button></div>
+            </> : <div className='created-room-result'><div className='created-room-details'><strong>{roomName}</strong><div className='created-room-credential'><small>Room ID</small><span>{createdRoom}</span></div><div className='created-room-credential'><small>Invite link</small><span>{roomUrl(createdRoom)}</span></div></div><div className='created-room-actions'><button id='copy-created-room-id' type='button' onClick={() => copyRoomId(createdRoom)}><Copy size={17} /> Copy ID</button><button id='copy-created-room-link' type='button' onClick={() => copyRoom(createdRoom)}><Link2 size={17} /> Copy link</button><a id='enter-created-room-primary' href={roomUrl(createdRoom)}>Enter room <ArrowRight size={17} /></a></div></div>}
           </form>}
         </div>
 
         <aside className='room-action-stack' aria-label='Join and share actions'>
           <article className='join-panel'>
-            <div><p className='panel-kicker'>02 · Join a room</p><h2>Have a room ID?</h2><p>Paste the ID shared by another listener.</p></div>
+            <div><p className='panel-kicker'>02 · Join a room</p><h2>Join with ID or link</h2><p>Enter the creator’s Room ID, or paste the full invite link.</p></div>
             <form onSubmit={joinRoom}>
-              <label className='sr-only' htmlFor='room-id-input'>Room ID</label>
-              <input id='room-id-input' value={roomInput} onChange={event => setRoomInput(event.target.value.toUpperCase())} placeholder='ROOM ID' maxLength='20' autoComplete='off' />
-              <button id='join-demo-room' type='submit' disabled={Boolean(busyAction)}><LogIn size={17} /> {busyAction === 'join' ? 'Checking…' : 'Join room'}</button>
+              <label className='sr-only' htmlFor='room-id-input'>Room ID or Pulseroom invite link</label>
+              <input id='room-id-input' value={roomInput} onChange={event => setRoomInput(event.target.value)} onPaste={pasteAndJoin} placeholder='ROOM ID OR INVITE LINK' maxLength='240' autoComplete='off' />
+              <button id='join-demo-room' type='submit' disabled={Boolean(busyAction)}><LogIn size={17} /> {busyAction === 'join' ? 'Opening…' : 'Join room'}</button>
             </form>
           </article>
 
           <article className={`share-panel ${createdRoom ? 'is-ready' : ''}`}>
-            <div><p className='panel-kicker'>03 · Invite a listener</p><h2>{createdRoom ? `Room ${createdRoom}` : 'Your invite appears here'}</h2><p>{createdRoom ? 'Copy the invite for another tab, or enter now.' : 'Create a room and this panel becomes your sharing shortcut.'}</p></div>
+            <div><p className='panel-kicker'>03 · Invite a listener</p><h2>{createdRoom ? `${roomName} is live` : 'Your invite appears here'}</h2><p>{createdRoom ? `Room ID ${createdRoom} · Share the ID or invite link.` : 'Create a room and your private join details will appear here.'}</p></div>
             {createdRoom && <div className='share-actions'>
-              <button id='copy-room-link' className='icon-action' type='button' onClick={copyRoom} aria-label='Copy room link'><Copy size={18} /></button>
+              <button id='copy-room-link' className='icon-action' type='button' onClick={() => copyRoom(createdRoom)} aria-label='Copy room link'><Copy size={18} /></button>
               <a id='open-created-room' href={roomUrl(createdRoom)}>Enter room <ArrowRight size={17} /></a>
             </div>}
           </article>
@@ -194,7 +220,7 @@ const DevDashboard = ({ user }) => {
 
       <section className='active-rooms' aria-labelledby='active-rooms-heading'>
         <div className='active-rooms-head'><div><p className='panel-kicker'>Live in this session</p><h2 id='active-rooms-heading'>Active rooms</h2></div><button id='refresh-active-rooms' type='button' onClick={() => refreshRooms(true)}><RefreshCw size={16} /> Refresh</button></div>
-        {rooms.length ? <div className='room-list'>{rooms.map(room => <a key={room.room_id} href={roomUrl(room.room_id)} className='room-list-item'><span className='room-live-dot' /><div><strong>{room.title || room.room_id}</strong><small>{room.room_id} · {room.addedTracks?.length || 0} tracks</small></div><Users size={17} /><ArrowRight size={17} /></a>)}</div> : <div className='rooms-empty'><Link2 size={22} /><p>No active rooms yet. Choose a collection above to create the first one.</p></div>}
+        {rooms.length ? <div className='room-list'>{rooms.map(room => <a key={room.room_id} href={roomUrl(room.room_id)} className='room-list-item'><span className='room-live-dot' /><div><strong>{room.title || 'Untitled room'}</strong><small>{room.addedTracks?.length || 0} tracks · Open room</small></div><Users size={17} /><ArrowRight size={17} /></a>)}</div> : <div className='rooms-empty'><Link2 size={22} /><p>No active rooms yet. Choose a collection above to create the first one.</p></div>}
       </section>
 
       <footer className='demo-lobby-footer'><span>Signed in locally as {user?.name || 'Demo listener'}</span><span>Rooms reset when the server stops.</span></footer>
