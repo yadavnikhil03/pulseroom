@@ -23,6 +23,23 @@ const getDemoUser = () => {
   return { id, name: `Listener ${id.slice(-4).toUpperCase()}`, image: '/images/icons/pulseroom-logo.svg' };
 };
 
+const createFallbackPlayback = () => ({
+  isPlaying: false,
+  positionMs: 0,
+  updatedAt: new Date().toISOString(),
+});
+
+const normalizeRoom = data => ({
+  ...data,
+  title: data?.title || 'Untitled room',
+  currentTrackId: data?.currentTrackId || null,
+  playback: {
+    ...createFallbackPlayback(),
+    ...(data?.playback || {}),
+  },
+  addedTracks: Array.isArray(data?.addedTracks) ? data.addedTracks : [],
+});
+
 const Room = () => {
   const parsedUrl = queryString.parse(window.location.search);
   const roomId = parsedUrl.room_id;
@@ -43,19 +60,21 @@ const Room = () => {
   const [switchingTrackId, setSwitchingTrackId] = useState('');
   const progressRef = useRef(null);
 
-  const currentQueueTrack = room?.addedTracks.find(item => item.spotifyId === room.currentTrackId);
-  const currentTrack = room?.addedTracks.find(item => item.spotifyId === room.currentTrackId)?.metadata;
+  const roomState = room ? normalizeRoom(room) : null;
+  const currentQueueTrack = roomState?.addedTracks.find(item => item.spotifyId === roomState.currentTrackId);
+  const currentTrack = roomState?.addedTracks.find(item => item.spotifyId === roomState.currentTrackId)?.metadata;
   const currentUserPresence = roomUsers.find(roomUser => roomUser.id === user.id);
   const isHost = Boolean(currentUserPresence?.isHost);
-  const liked = Boolean(currentQueueTrack?.likes.includes(user.id));
+  const liked = Boolean(currentQueueTrack?.likes?.includes(user.id));
 
 
   const loadRoom = async (quiet = false) => {
     if (!roomId) { setNotFound(true); setLoading(false); return; }
     try {
       const { data } = await API.getTracks(roomId);
-      setRoom(data);
-      setProgress(data.playback?.positionMs || 0);
+      const nextRoom = normalizeRoom(data);
+      setRoom(nextRoom);
+      setProgress(nextRoom.playback.positionMs || 0);
       setNotFound(false);
     } catch (_) { setNotFound(true);
     } finally { if (!quiet) setLoading(false); }
@@ -174,8 +193,8 @@ const Room = () => {
   const errorMessage = (error, fallback) => error?.response?.data?.message || error?.message || fallback;
 
   const togglePlayback = async () => {
-    if (!isHost || !room || !currentTrack) return;
-    const shouldPlay = !room.playback.isPlaying;
+    if (!isHost || !roomState || !currentTrack) return;
+    const shouldPlay = !roomState.playback.isPlaying;
     try {
       if (shouldPlay) await localAudio.play(currentTrack, progress);
       else localAudio.pause();
@@ -214,9 +233,9 @@ const Room = () => {
   };
 
   const selectTrack = async trackId => {
-    if (!trackId || switchingTrackId || trackId === room.currentTrackId) return;
+    if (!trackId || switchingTrackId || trackId === roomState?.currentTrackId) return;
     setSwitchingTrackId(trackId);
-    const selectedTrack = room.addedTracks.find(track => track.spotifyId === trackId)?.metadata;
+    const selectedTrack = roomState?.addedTracks.find(track => track.spotifyId === trackId)?.metadata;
     setMessage(`Switching to ${selectedTrack?.name || 'selected track'}…`);
     try {
       const { data } = await API.switchTrack(roomId, trackId, true);
@@ -272,7 +291,7 @@ const Room = () => {
         localAudio.pause();
         setSoundEnabled(false);
       } else {
-        if (room.playback.isPlaying && currentTrack) await localAudio.play(currentTrack, progress);
+        if (roomState?.playback.isPlaying && currentTrack) await localAudio.play(currentTrack, progress);
         setSoundEnabled(true);
       }
     } catch (error) {
@@ -289,9 +308,10 @@ const Room = () => {
     setProgress(newProgress);
     try {
       await localAudio.seek(newProgress);
-      const { data } = await API.updatePlayback(roomId, room.playback.isPlaying, newProgress);
-      setRoom(data);
-      setProgress(data.playback.positionMs || 0);
+      const { data } = await API.updatePlayback(roomId, roomState.playback.isPlaying, newProgress);
+      const nextRoom = normalizeRoom(data);
+      setRoom(nextRoom);
+      setProgress(nextRoom.playback.positionMs || 0);
       announce('playback_update');
     } catch (error) {
       setMessage(errorMessage(error, 'Could not seek this track.'));
@@ -319,7 +339,7 @@ const Room = () => {
         </div>
       </nav>
       <header className='room-header'>
-        <div><p className='room-kicker'>Shared listening session</p><h1>{room.title}</h1><span className={`room-role is-${isHost ? 'host' : 'listener'}`}>{isHost ? 'You are the host' : 'Listening with host controls'}</span></div>
+        <div><p className='room-kicker'>Shared listening session</p><h1>{roomState?.title}</h1><span className={`room-role is-${isHost ? 'host' : 'listener'}`}>{isHost ? 'You are the host' : 'Listening with host controls'}</span></div>
         <div className='room-header-actions'>
           <div className='listener-chip'><Users size={17} /> {roomUsers.length || 1} listening</div>
           <button id='copy-room-link' type='button' onClick={copyLink}><Copy size={17} /> Copy link</button>
@@ -330,12 +350,12 @@ const Room = () => {
       <div className={`room-toast ${message ? 'is-visible' : ''}`} role='status'>{message}</div>
       <section className='room-layout'>
         <article className='now-playing-panel'>
-          <div className={`album-visual ${room.playback.isPlaying ? 'is-playing' : ''}`}>
+          <div className={`album-visual ${roomState?.playback.isPlaying ? 'is-playing' : ''}`}>
             <div className='album-orbit' /><Music2 size={70} />
             <span>{currentTrack ? currentTrack.genre : 'queue complete'}</span>
           </div>
           <div className='player-copy'>
-            <div className='playback-label'><span /> {room.playback.isPlaying ? 'Now playing' : 'Ready to play'}</div>
+            <div className='playback-label'><span /> {roomState?.playback.isPlaying ? 'Now playing' : 'Ready to play'}</div>
             <h2>{currentTrack?.name || 'End of queue'}</h2>
             <p>{currentTrack?.artists[0] || 'Create another room to restart'}</p>
           </div>
@@ -357,7 +377,7 @@ const Room = () => {
             <div className='room-times'><span>{formatTime(progress)}</span><span>{formatTime(duration)}</span></div>
             <PlayerControls
               isHost={isHost}
-              isPlaying={room.playback.isPlaying}
+              isPlaying={roomState?.playback.isPlaying}
               liked={liked}
               onTogglePlayback={togglePlayback}
               onSkipTrack={skipTrack}
@@ -374,10 +394,10 @@ const Room = () => {
           </div>
         </article>
         <aside className='queue-panel'>
-          <div className='queue-heading'><div><p className='room-kicker'>Add music</p><h2>Shared queue</h2></div><span>{room.addedTracks.length} tracks</span></div>
+          <div className='queue-heading'><div><p className='room-kicker'>Add music</p><h2>Shared queue</h2></div><span>{roomState?.addedTracks.length || 0} tracks</span></div>
           <TrackSearch onSelect={addTrack} />
           <ol className='queue-list'>
-            {room.addedTracks.map((item, index) => {
+            {roomState?.addedTracks.map((item, index) => {
               const isSwitching = switchingTrackId === item.spotifyId;
               return (
               <li key={item._id} className={`${item.nowPlaying ? 'current' : ''} ${item.played ? 'played' : ''} ${isSwitching ? 'is-switching' : ''}`}>
@@ -394,7 +414,7 @@ const Room = () => {
       {currentTrack && <div className='mobile-player' aria-label='Mobile playback controls'>
         <div><strong>{currentTrack.name}</strong><small>{currentTrack.artists[0]}</small></div>
         <button type='button' onClick={toggleSound} aria-label={soundEnabled ? 'Mute local audio' : 'Enable local audio'}>{soundEnabled ? <Volume2 size={19} /> : <VolumeX size={19} />}</button>
-        <button type='button' className='mobile-player-primary' onClick={togglePlayback} disabled={!isHost} aria-label={room.playback.isPlaying ? 'Pause' : 'Play'}>{room.playback.isPlaying ? <Pause size={20} fill='currentColor' /> : <Play size={20} fill='currentColor' />}</button>
+        <button type='button' className='mobile-player-primary' onClick={togglePlayback} disabled={!isHost} aria-label={roomState?.playback.isPlaying ? 'Pause' : 'Play'}>{roomState?.playback.isPlaying ? <Pause size={20} fill='currentColor' /> : <Play size={20} fill='currentColor' />}</button>
       </div>}
     </main>
   );
