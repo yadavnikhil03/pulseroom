@@ -211,6 +211,25 @@ const Room = () => {
     }
   };
 
+  const selectTrack = async trackId => {
+    try {
+      const { data: selectedRoom } = await API.updateNowPlaying(roomId, trackId);
+      const selectedTrack = selectedRoom.addedTracks.find(track => track.spotifyId === selectedRoom.currentTrackId)?.metadata;
+      if (!selectedTrack) throw new Error('The selected track is unavailable.');
+
+      const { data } = await API.updatePlayback(roomId, true, 0);
+      setRoom(data);
+      setProgress(0);
+      setSoundEnabled(true);
+      await localAudio.play(selectedTrack, 0);
+      announce('playback_update');
+      announce('queue_update');
+      setMessage(`Now playing ${selectedTrack.name}.`);
+    } catch (error) {
+      setMessage(errorMessage(error, 'Could not select the track.'));
+    }
+  };
+
   const addTrack = async track => {
     if (!track || !track.id) return;
     try {
@@ -341,9 +360,11 @@ const Room = () => {
           <ol className='queue-list'>
             {room.addedTracks.map((item, index) => (
               <li key={item._id} className={`${item.nowPlaying ? 'current' : ''} ${item.played ? 'played' : ''}`}>
-                <span className='queue-index'>{String(index + 1).padStart(2, '0')}</span>
-                <span className='queue-track'><strong>{item.metadata?.name || item.info.split(' - ')[0]}</strong><small>{item.metadata?.artists[0] || item.info.split(' - ')[1]}</small></span>
-                <span className='queue-state'>{item.nowPlaying ? <Radio size={16} /> : item.played ? 'Played' : formatTime(item.metadata?.duration_ms)}</span>
+                <button type='button' className='queue-item-button' onClick={() => selectTrack(item.spotifyId)} disabled={item.nowPlaying} aria-label={`Play ${item.metadata?.name}`}>
+                  <span className='queue-index'>{String(index + 1).padStart(2, '0')}</span>
+                  <span className='queue-track'><strong>{item.metadata?.name || item.info.split(' - ')[0]}</strong><small>{item.metadata?.artists[0] || item.info.split(' - ')[1]}</small></span>
+                  <span className='queue-state'>{item.nowPlaying ? <Radio size={16} /> : item.played ? 'Played' : formatTime(item.metadata?.duration_ms)}</span>
+                </button>
               </li>
             ))}
           </ol>
