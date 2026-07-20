@@ -28,7 +28,12 @@ const readCookie = (req, name) => {
   return value ? decodeURIComponent(value.slice(name.length + 1)) : null;
 };
 
-const setSessionCookie = (res, id) => res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(id)}; Path=/; HttpOnly; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
+const setSessionCookie = (res, id) => {
+  const productionAttributes = process.env.NODE_ENV === 'production'
+    ? 'SameSite=None; Secure'
+    : 'SameSite=Lax';
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(id)}; Path=/; HttpOnly; ${productionAttributes}`);
+};
 const getSession = req => sessions.get(readCookie(req, SESSION_COOKIE));
 const redirectWithError = (res, message) => res.redirect(`${getFrontendUrl()}/home?error=${encodeURIComponent(message)}`);
 

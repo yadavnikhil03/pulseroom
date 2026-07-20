@@ -9,9 +9,7 @@
     "start:dev": "concurrently \"nodemon --ext js,json,env --ignore client server.js\" \"npm run client\"",
     "dev": "npm run start:dev",
     "client": "npm --prefix client run start",
-    "install": "cd client && npm install",
-
-    "heroku-postbuild": "cd client && npm run build"
+    "build:client": "npm --prefix client run build"
   },
   "author": "",
   "license": "ISC",
