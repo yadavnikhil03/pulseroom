@@ -17,6 +17,9 @@ const DevDashboard = ({ user }) => {
   const [roomInput, setRoomInput] = useState('');
   const [rooms, setRooms] = useState([]);
   const [createdRoom, setCreatedRoom] = useState('');
+  const [selectedCollection, setSelectedCollection] = useState('');
+  const [roomName, setRoomName] = useState('');
+  const [draftRoomId, setDraftRoomId] = useState(makeRoomId());
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('info');
   const [busyAction, setBusyAction] = useState('');
@@ -39,22 +42,40 @@ const DevDashboard = ({ user }) => {
     refreshRooms();
   }, []);
 
-  const createRoom = async collectionId => {
-    setBusyAction(`create-${collectionId}`);
+  const openRoomSetup = collectionId => {
+    const collection = collections.find(item => item.id === collectionId);
+    setSelectedCollection(collectionId);
+    setRoomName(collection?.name || 'My Pulseroom');
+    setDraftRoomId(makeRoomId());
+    setCreatedRoom('');
+    setMessage('');
+    window.requestAnimationFrame(() => document.getElementById('room-setup-name')?.focus());
+  };
+
+  const createRoom = async event => {
+    event.preventDefault();
+    if (!selectedCollection) return;
+
+    const title = roomName.trim();
+    if (title.length < 2) {
+      setMessageType('error');
+      setMessage('Give your room a name with at least 2 characters.');
+      return;
+    }
+
+    setBusyAction('create-room');
     setMessage('');
     try {
-      const roomId = makeRoomId();
-      await API.createRoom(roomId, collectionId, {
-        title: collections.find(item => item.id === collectionId)?.name
-      });
+      const roomId = normalizeRoomId(draftRoomId);
+      await API.createRoom(roomId, selectedCollection, { title });
       setCreatedRoom(roomId);
       setRoomInput(roomId);
       setMessageType('success');
-      setMessage(`Room ${roomId} is ready. Copy the link or enter the room now.`);
+      setMessage(`${title} is live. Enter the room or copy its invite link.`);
       await refreshRooms();
     } catch (error) {
       setMessageType('error');
-      setMessage(error.response?.data?.message || 'Could not create the room. Please retry.');
+      setMessage(error.response?.data?.message || 'Could not create the room. Make sure the local server is running.');
     } finally {
       setBusyAction('');
     }
@@ -125,16 +146,30 @@ const DevDashboard = ({ user }) => {
           </div>
           <div className='demo-lobby-grid' aria-labelledby='collections-heading'>
             {collections.map((collection, index) => (
-              <article className='collection-card' key={collection.id} style={{ '--collection-accent': collection.accent }}>
-                <div className='collection-card-top'><span>0{index + 1}</span><Music2 size={18} /></div>
+              <article className={`collection-card ${selectedCollection === collection.id ? 'is-selected' : ''}`} key={collection.id} style={{ '--collection-accent': collection.accent }}>
+                <div className='collection-card-top'><span>0{index + 1}</span>{selectedCollection === collection.id ? <Check size={18} /> : <Music2 size={18} />}</div>
                 <div className='collection-art' aria-hidden='true'>{[24, 48, 72, 38, 88, 56, 31].map((height, barIndex) => <i key={barIndex} style={{ height: `${height}%` }} />)}</div>
                 <div className='collection-copy'><h3>{collection.name}</h3><p>{collection.description}</p><small>{collection.count} generated tracks</small></div>
-                <button id={`create-${collection.id}-room`} type='button' onClick={() => createRoom(collection.id)} disabled={Boolean(busyAction)}>
-                  <Headphones size={16} /> {busyAction === `create-${collection.id}` ? 'Creating…' : 'Create room'}
+                <button id={`create-${collection.id}-room`} type='button' onClick={() => openRoomSetup(collection.id)} disabled={Boolean(busyAction)}>
+                  <Headphones size={16} /> {selectedCollection === collection.id ? 'Selected · edit setup' : 'Create room'}
                 </button>
               </article>
             ))}
           </div>
+
+          {selectedCollection && <form className={`room-setup ${createdRoom ? 'is-created' : ''}`} onSubmit={createRoom} aria-labelledby='room-setup-heading'>
+            <div className='room-setup-head'>
+              <div><p className='panel-kicker'>Room setup</p><h3 id='room-setup-heading'>{createdRoom ? 'Your room is ready' : 'Make it yours'}</h3></div>
+              <span>{collections.find(item => item.id === selectedCollection)?.name}</span>
+            </div>
+            {!createdRoom ? <>
+              <div className='room-setup-fields'>
+                <label htmlFor='room-setup-name'><span>Room name</span><input id='room-setup-name' value={roomName} onChange={event => setRoomName(event.target.value)} maxLength='48' placeholder='e.g. Friday Night Mix' /></label>
+                <label htmlFor='room-setup-id'><span>Invite code</span><div className='room-code-field'><input id='room-setup-id' value={draftRoomId} readOnly /><button id='regenerate-room-id' type='button' onClick={() => setDraftRoomId(makeRoomId())} aria-label='Generate a new room ID'><RefreshCw size={16} /></button></div></label>
+              </div>
+              <div className='room-setup-footer'><p>Three tracks will be queued automatically. You can add more inside the room.</p><button id='confirm-create-room' type='submit' disabled={busyAction === 'create-room'}>{busyAction === 'create-room' ? <RefreshCw className='is-spinning' size={17} /> : <Radio size={17} />}{busyAction === 'create-room' ? 'Creating room…' : 'Create & continue'}</button></div>
+            </> : <div className='created-room-result'><div><strong>{roomName}</strong><span>Room code · {createdRoom}</span></div><div className='created-room-actions'><button id='copy-created-room-link' type='button' onClick={copyRoom}><Copy size={17} /> Copy invite</button><a id='enter-created-room-primary' href={roomUrl(createdRoom)}>Enter room <ArrowRight size={17} /></a></div></div>}
+          </form>}
         </div>
 
         <aside className='room-action-stack' aria-label='Join and share actions'>
