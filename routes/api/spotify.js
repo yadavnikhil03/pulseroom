@@ -1,74 +1,107 @@
-const router = require('express').Router(),
-  querystring = require('querystring'),
-  request = require('request');
+const crypto = require('crypto');
+const router = require('express').Router();
+const querystring = require('querystring');
+const axios = require('axios');
 
 require('dotenv').config();
 
-const getRedirectUri = (req) => {
-  if (process.env.REDIRECT_URI || process.env.REDIRECT_URL) {
-    return (process.env.REDIRECT_URI || process.env.REDIRECT_URL).trim();
-  }
-  const host = req.get('host') || 'localhost:8888';
-  return `http://${host}/api/spotify/callback`;
+const sessions = new Map();
+const SESSION_COOKIE = 'pulseroom_spotify_session';
+const SCOPES = [
+  'user-read-private',
+  'user-read-email',
+  'playlist-read-private',
+  'playlist-read-collaborative',
+  'user-read-currently-playing',
+  'user-read-playback-state',
+  'user-modify-playback-state'
+].join(' ');
+
+const getRedirectUri = req => (process.env.SPOTIFY_REDIRECT_URI || process.env.REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/spotify/callback`).trim();
+const getClientId = () => (process.env.SPOTIFY_CLIENT_ID || process.env.CLIENT_ID || '').trim();
+const getClientSecret = () => (process.env.SPOTIFY_CLIENT_SECRET || process.env.CLIENT_SECRET || '').trim();
+const getFrontendUrl = () => (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+
+const readCookie = (req, name) => {
+  const header = req.headers.cookie || '';
+  const value = header.split(';').map(part => part.trim()).find(part => part.startsWith(`${name}=`));
+  return value ? decodeURIComponent(value.slice(name.length + 1)) : null;
 };
 
-const getClientId = () => (process.env.CLIENT_ID || process.env.client_id || '').trim();
-const getClientSecret = () => (process.env.CLIENT_SECRET || process.env.client_secret || '').trim();
+const setSessionCookie = (res, id) => res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(id)}; Path=/; HttpOnly; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
+const getSession = req => sessions.get(readCookie(req, SESSION_COOKIE));
+const redirectWithError = (res, message) => res.redirect(`${getFrontendUrl()}/home?error=${encodeURIComponent(message)}`);
 
-// ROUTE: /api/spotify/login
-router.get('/login', function (req, res) {
-  if (process.env.DEMO_MODE === 'true') {
-    const demoUrl = process.env.FRONTEND_URL || 'http://localhost:3000/home';
-    return res.redirect(demoUrl + '?access_token=dev_mock_token');
-  }
-  const clientId = getClientId();
-  if (!clientId) {
-    return res.status(500).send('ERROR: Spotify Client ID is missing in .env file (please check CLIENT_ID or client_id and restart server).');
-  }
+const getAuthHeader = () => `Basic ${Buffer.from(`${getClientId()}:${getClientSecret()}`).toString('base64')}`;
 
-  const url =
-    'https://accounts.spotify.com/authorize?' +
-    querystring.stringify({
-      response_type: 'code',
-      client_id: clientId,
-      scope:
-        'user-read-private user-read-email playlist-modify-private playlist-modify-public user-read-currently-playing user-read-playback-state user-modify-playback-state',
-      redirect_uri: getRedirectUri(req),
-    });
-
-  res.redirect(url);
+const spotifyTokenApi = axios.create({
+  baseURL: 'https://accounts.spotify.com/api',
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  timeout: 10000,
 });
 
-// ROUTE: /api/spotify/callback
-router.get('/callback', function (req, res) {
-  let code = req.query.code || null;
+router.get('/login', (req, res) => {
   const clientId = getClientId();
-  const clientSecret = getClientSecret();
+  if (!clientId || !getClientSecret()) return res.status(500).send('Spotify credentials are missing. Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET in .env.');
+  const state = crypto.randomBytes(24).toString('hex');
+  sessions.set(state, { state, createdAt: Date.now() });
+  const url = 'https://accounts.spotify.com/authorize?' + querystring.stringify({ response_type: 'code', client_id: clientId, scope: SCOPES, redirect_uri: getRedirectUri(req), state });
+  return res.redirect(url);
+});
 
-  let authOptions = {
-    url: 'https://accounts.spotify.com/api/token',
-    form: {
-      code: code,
+router.get('/callback', async (req, res) => {
+  const pending = req.query.state && sessions.get(req.query.state);
+  if (!pending || Date.now() - pending.createdAt > 10 * 60 * 1000) return redirectWithError(res, 'Spotify login expired. Please try again.');
+  sessions.delete(req.query.state);
+  if (req.query.error) return redirectWithError(res, `Spotify login failed: ${req.query.error}`);
+  try {
+    const response = await spotifyTokenApi.post('/token', querystring.stringify({
+      code: req.query.code,
       redirect_uri: getRedirectUri(req),
       grant_type: 'authorization_code',
-    },
-    headers: {
-      Authorization:
-        'Basic ' +
-        Buffer.from(clientId + ':' + clientSecret).toString('base64'),
-    },
-    json: true,
-  };
-  request.post(authOptions, (error, response, body) => {
-    const url = process.env.FRONTEND_URL || 'http://localhost:3000/home';
-    if (error || response.statusCode !== 200 || !body || !body.access_token) {
-      console.error('Spotify token exchange failed:', error || body);
-      const errMsg = body && (body.error_description || body.error) ? (body.error_description || body.error) : 'Failed to obtain Spotify access token';
-      return res.redirect(url + '?error=' + encodeURIComponent(errMsg));
-    }
-    const access_token = body.access_token;
-    res.redirect(url + '?access_token=' + access_token);
-  });
+    }), { headers: { Authorization: getAuthHeader() } });
+    if (!response.data?.access_token) return redirectWithError(res, 'Failed to obtain Spotify access token');
+    const sessionId = crypto.randomBytes(32).toString('hex');
+    sessions.set(sessionId, { accessToken: response.data.access_token, refreshToken: response.data.refresh_token, expiresAt: Date.now() + (response.data.expires_in * 1000), createdAt: Date.now() });
+    setSessionCookie(res, sessionId);
+    return res.redirect(`${getFrontendUrl()}/home`);
+  } catch (error) {
+    console.error('Spotify token exchange failed:', error.response?.data || error.message);
+    return redirectWithError(res, error.response?.data?.error_description || error.response?.data?.error || 'Failed to obtain Spotify access token');
+  }
+});
+
+router.get('/token', (req, res) => {
+  const session = getSession(req);
+  if (!session?.accessToken) return res.status(401).json({ message: 'Spotify login required.' });
+  return res.json({ access_token: session.accessToken, expires_at: session.expiresAt });
+});
+
+router.post('/refresh', async (req, res) => {
+  const sessionId = readCookie(req, SESSION_COOKIE);
+  const session = sessions.get(sessionId);
+  if (!session?.refreshToken) return res.status(401).json({ message: 'Spotify login required.' });
+  try {
+    const response = await spotifyTokenApi.post('/token', querystring.stringify({
+      grant_type: 'refresh_token',
+      refresh_token: session.refreshToken,
+    }), { headers: { Authorization: getAuthHeader() } });
+    if (!response.data?.access_token) return res.status(401).json({ message: 'Spotify session expired. Please log in again.' });
+    session.accessToken = response.data.access_token;
+    session.expiresAt = Date.now() + (response.data.expires_in * 1000);
+    if (response.data.refresh_token) session.refreshToken = response.data.refresh_token;
+    return res.json({ access_token: session.accessToken, expires_at: session.expiresAt });
+  } catch (error) {
+    console.error('Spotify token refresh failed:', error.response?.data || error.message);
+    return res.status(401).json({ message: 'Spotify session expired. Please log in again.' });
+  }
+});
+
+router.post('/logout', (req, res) => {
+  const sessionId = readCookie(req, SESSION_COOKIE);
+  if (sessionId) sessions.delete(sessionId);
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`);
+  return res.status(204).end();
 });
 
 module.exports = router;

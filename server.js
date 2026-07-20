@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express'),
+  cors = require('cors'),
   morgan = require('morgan'),
   path = require('path'),
   http = require('http'),
@@ -17,6 +18,10 @@ const io = new Server(server, {
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(cors({
+  origin: [process.env.FRONTEND_URL || 'http://127.0.0.1:3000', 'http://localhost:3000'],
+  credentials: true
+}));
 app.use(morgan('tiny'));
 
 app.use(routes);

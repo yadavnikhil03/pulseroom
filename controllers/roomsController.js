@@ -1,21 +1,52 @@
 const db = require('../models');
 
+const toQueueTrack = (track, index = 0) => ({
+  info: `${track.name} - ${track.artists?.[0] || 'Unknown Artist'}`,
+  spotifyId: track.id,
+  metadata: { ...track, source: 'spotify' },
+  played: false,
+  progress: 0,
+  nowPlaying: index === 0,
+  likes: []
+});
+
 module.exports = {
-	findAll: (req, res) => {
-		db.Room.find(req.query)
-			.then(data => res.json(data))
-			.catch(err => res.status(422).json(err));
-	},
-	findByName: (req, res) => {
-		db.Room.findOne({ room_id: req.params.id })
-			.then(data => res.json(data))
-			.catch(err => res.status(422).json(err));
-	},
-	create: (req, res) => {
-		db.Room.create(req.body)
-			.then(data => res.json(data))
-			.catch(err => res.status(422).json(err));
-	},
+  findAll: (req, res) => {
+    db.Room.find(req.query)
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .then(data => res.json(data))
+      .catch(err => res.status(422).json(err));
+  },
+  findByName: (req, res) => {
+    db.Room.findOne({ room_id: req.params.id })
+      .then(data => (data ? res.json(data) : res.status(404).json({ message: `Room ${req.params.id} was not found` })))
+      .catch(err => res.status(422).json(err));
+  },
+  create: async (req, res) => {
+    try {
+      const roomId = String(req.body.room_id || '').trim().toUpperCase();
+      if (!/^[A-Z0-9_-]{3,20}$/.test(roomId)) {
+        return res.status(400).json({ message: 'Room ID must be 3–20 letters, numbers, dashes, or underscores.' });
+      }
+      const existing = await db.Room.findOne({ room_id: roomId });
+      if (existing) return res.status(409).json({ message: `Room ID “${roomId}” is already in use.` });
+
+      const sourceTracks = Array.isArray(req.body.tracks) ? req.body.tracks : [];
+      const addedTracks = sourceTracks.map(toQueueTrack);
+      const room = {
+        room_id: roomId,
+        title: req.body.title,
+        collectionId: req.body.collectionId,
+        currentTrackId: addedTracks[0]?.spotifyId || null,
+        addedTracks
+      };
+      const data = await db.Room.create(room);
+      return res.status(201).json(data);
+    } catch (err) {
+      return res.status(422).json(err);
+    }
+  },
 	addTrack: (req, res) =>
 		db.Room.findOneAndUpdate(
 			{ room_id: req.params.id },

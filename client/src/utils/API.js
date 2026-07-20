@@ -1,44 +1,33 @@
 import axios from 'axios';
+import SpotifyAPI from './SpotifyAPI';
+import { apiURL } from '../App.config';
 
 const REQUEST_TIMEOUT = 8000;
+const roomsURL = `${apiURL}/api/rooms`;
+const requestConfig = { timeout: REQUEST_TIMEOUT, withCredentials: true };
 
 export default {
-  getRooms: () => axios.get('/api/rooms', { timeout: REQUEST_TIMEOUT }),
-  createRoom: (roomId, collectionId, options = {}) => axios.post('/api/rooms', {
+  getRooms: () => axios.get(roomsURL, requestConfig),
+  createRoom: (roomId, collectionId, options = {}) => axios.post(roomsURL, {
     room_id: roomId,
     collectionId,
     title: options.title,
-    trackIds: options.trackIds
-  }, { timeout: REQUEST_TIMEOUT }),
-  searchTracks: query => axios.get(`/api/audius/search?q=${encodeURIComponent(query)}`, { timeout: 5000 }),
-  getTracks: roomId => axios.get(`/api/rooms/${roomId}`, { timeout: REQUEST_TIMEOUT }),
-  updatePlayback: (roomId, isPlaying, positionMs) => axios.put(
-    `/api/rooms/${roomId}/playback`,
-    { isPlaying, positionMs },
-    { timeout: REQUEST_TIMEOUT }
-  ),
-  switchTrack: (roomId, trackId, isPlaying = true) => axios.put(
-    `/api/rooms/${roomId}/select`,
-    { trackId, isPlaying },
-    { timeout: REQUEST_TIMEOUT }
-  ),
-  advanceTrack: roomId => axios.put(`/api/rooms/${roomId}/advance`, null, { timeout: REQUEST_TIMEOUT }),
-  updateTrack: (roomId, trackId, type, user) => {
-    const url = user
-      ? `/api/rooms/${roomId}/track/${trackId}/${type}?user=${user}`
-      : `/api/rooms/${roomId}/track/${trackId}/${type}`;
-    return axios.put(url);
-  },
-  updateNowPlaying: (roomId, trackId) => axios.put(
-    `/api/rooms/${roomId}/playing/${trackId}`
-  ),
-  updateSongProgress: (roomId, trackId, progress) => axios.put(
-    `/api/rooms/${roomId}/progress/${trackId}/${progress}`
-  ),
+    trackIds: options.trackIds,
+    tracks: options.tracks
+  }, requestConfig),
+  searchTracks: query => SpotifyAPI.trackSearch(query).then(({ data }) => ({ data: { results: (data.tracks?.items || []).map(SpotifyAPI.normalizeTrack) } })),
+  getTracks: roomId => axios.get(`${roomsURL}/${encodeURIComponent(roomId)}`, requestConfig),
+  updatePlayback: (roomId, isPlaying, positionMs) => axios.put(`${roomsURL}/${encodeURIComponent(roomId)}/playback`, { isPlaying, positionMs }, requestConfig),
+  switchTrack: (roomId, trackId, isPlaying = true) => axios.put(`${roomsURL}/${encodeURIComponent(roomId)}/select`, { trackId, isPlaying }, requestConfig),
+  advanceTrack: roomId => axios.put(`${roomsURL}/${encodeURIComponent(roomId)}/advance`, null, requestConfig),
+  updateTrack: (roomId, trackId, type, user) => axios.put(user ? `${roomsURL}/${encodeURIComponent(roomId)}/track/${encodeURIComponent(trackId)}/${type}?user=${encodeURIComponent(user)}` : `${roomsURL}/${encodeURIComponent(roomId)}/track/${encodeURIComponent(trackId)}/${type}`, null, requestConfig),
+  updateNowPlaying: (roomId, trackId) => axios.put(`${roomsURL}/${encodeURIComponent(roomId)}/playing/${encodeURIComponent(trackId)}`, null, requestConfig),
+  updateSongProgress: (roomId, trackId, progress) => axios.put(`${roomsURL}/${encodeURIComponent(roomId)}/progress/${encodeURIComponent(trackId)}/${progress}`, null, requestConfig),
   addTrack: (roomId, trackOrId, trackInfo) => {
     const isTrackObject = trackOrId && typeof trackOrId === 'object';
-    return axios.put(`/api/rooms/${roomId}`, isTrackObject
-      ? { spotifyId: trackOrId.id, track: trackOrId }
-      : { spotifyId: trackOrId, info: trackInfo });
+    const body = isTrackObject
+      ? { spotifyId: trackOrId.id, info: `${trackOrId.name} - ${trackOrId.artists?.[0] || ''}`, metadata: trackOrId }
+      : { spotifyId: trackOrId, info: trackInfo };
+    return axios.put(`${roomsURL}/${encodeURIComponent(roomId)}`, body, requestConfig);
   }
 };
