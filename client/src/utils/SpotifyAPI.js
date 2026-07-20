@@ -1,161 +1,126 @@
 import axios from 'axios';
+import localAudio from './localAudio';
 
-const mockResponse = (data) => Promise.resolve({ data });
+const mockResponse = data => Promise.resolve({ data });
+const catalogue = localAudio.getCatalogue();
+
+const toTrackResult = track => ({
+	...track,
+	album: {
+		images: [{ url: localAudio.imageFor(track.id) }],
+		artists: track.artists.map(name => ({ name })),
+	}
+});
 
 export default {
 	getUserData: token => {
-		if (token === 'dev_mock_token') {
-			return mockResponse({
-				id: 'dev123',
-				display_name: 'Admin User',
-				external_urls: { spotify: '' },
-				images: [{ url: '/images/icons/pulseroom-logo.svg' }]
+		if (token !== 'dev_mock_token') {
+			return axios({
+				method: 'GET',
+				url: 'https://api.spotify.com/v1/me',
+				headers: { Authorization: `Bearer ${token}` }
 			});
 		}
-		return axios({
-			method: 'GET',
-			url: 'https://api.spotify.com/v1/me',
-			headers: {
-				Authorization: 'Bearer ' + token
-			}
+		return mockResponse({
+			id: 'dev123',
+			display_name: 'Admin User',
+			external_urls: { spotify: '' },
+			images: [{ url: '/images/icons/pulseroom-logo.svg' }]
 		});
 	},
-	getUserPlaylists: (token, limit) => {
-		if (token === 'dev_mock_token') {
-			return mockResponse({
-				items: [
-					{ id: 'mock1', name: 'Chill Vibes (Mock)', images: [{ url: '/images/icons/pulseroom-logo.svg' }] },
-					{ id: 'mock2', name: 'Workout Mix (Mock)', images: [{ url: '/images/icons/pulseroom-logo.svg' }] },
-					{ id: 'mock3', name: 'Late Night (Mock)', images: [{ url: '/images/icons/pulseroom-logo.svg' }] },
-					{ id: 'mock4', name: 'Top 50 (Mock)', images: [{ url: '/images/icons/pulseroom-logo.svg' }] }
-				]
+
+	getUserPlaylists: (token, limit = 4) => {
+		if (token !== 'dev_mock_token') {
+			return axios({
+				method: 'GET',
+				url: `https://api.spotify.com/v1/me/playlists?limit=${limit}`,
+				headers: { Authorization: `Bearer ${token}` }
 			});
 		}
-		return axios({
-			method: 'GET',
-			url: `https://api.spotify.com/v1/me/playlists?limit=${limit}`,
-			headers: {
-				Authorization: 'Bearer ' + token
-			}
-		})
+		return mockResponse({
+			items: [
+				{ id: 'synthwave', name: 'Synthwave Hits', images: [{ url: localAudio.imageFor() }] },
+				{ id: 'electronic', name: 'Electronic Anthems', images: [{ url: localAudio.imageFor() }] },
+				{ id: 'ambient', name: 'Ambient Flow', images: [{ url: localAudio.imageFor() }] },
+				{ id: 'chillstep', name: 'Chillstep Mix', images: [{ url: localAudio.imageFor() }] }
+			]
+		});
 	},
+
 	getUserQueueData: token => {
-		if (token === 'dev_mock_token') {
-			return mockResponse({
-				is_playing: true,
-				item: {
-					name: 'Mock Track',
-					album: { 
-						images: [{ url: '/images/icons/pulseroom-logo.svg' }],
-						artists: [{ name: 'Mock Artist' }]
-					},
-					duration_ms: 180000
-				},
-				progress_ms: 60000
+		if (token !== 'dev_mock_token') {
+			return axios({
+				method: 'GET',
+				url: 'https://api.spotify.com/v1/me/player',
+				headers: { Authorization: `Bearer ${token}` }
 			});
 		}
-		return axios({
-			method: 'GET',
-			url: 'https://api.spotify.com/v1/me/player',
-			headers: {
-				Authorization: 'Bearer ' + token
-			}
+		const track = catalogue[0];
+		return mockResponse({
+			is_playing: true,
+			item: toTrackResult(track),
+			progress_ms: 60_000,
 		});
 	},
+
 	addTrackToQueue: (token, trackId) => {
-		if (token === 'dev_mock_token') return mockResponse({ success: true });
-		return axios({
-			method: 'POST',
-			url: `https://api.spotify.com/v1/me/player/queue?uri=spotify:track:${trackId}`,
-			headers: {
-				Authorization: `Bearer ${token}`
-			}
-		});
+		if (token !== 'dev_mock_token') {
+			return axios({
+				method: 'POST',
+				url: `https://api.spotify.com/v1/me/player/queue?uri=spotify:track:${trackId}`,
+				headers: { Authorization: `Bearer ${token}` }
+			});
+		}
+		return mockResponse({ success: true });
 	},
+
 	playPausePlayback: (action, token) => {
-		if (token === 'dev_mock_token') return mockResponse({ success: true });
-		return axios({
-			method: 'PUT',
-			url: `https://api.spotify.com/v1/me/player/${action}`,
-			headers: {
-				Authorization: 'Bearer ' + token,
-				'Content-Type': 'application/json'
-			}
-		});
+		if (token !== 'dev_mock_token') {
+			return axios({
+				method: 'PUT',
+				url: `https://api.spotify.com/v1/me/player/${action}`,
+				headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+			});
+		}
+		return mockResponse({ success: true });
 	},
+
 	nextPlaybackTrack: token => {
-		if (token === 'dev_mock_token') return mockResponse({ success: true });
-		return axios({
-			method: 'POST',
-			url: 'https://api.spotify.com/v1/me/player/next',
-			headers: {
-				Authorization: 'Bearer ' + token,
-				'Content-Type': 'application/json'
-			}
-		});
-	},
-	trackSearch: (token, track) => {
-		if (token === 'dev_mock_token') {
-			return mockResponse({
-				tracks: {
-					items: [
-						{
-							id: 'mock_t1',
-							name: 'Search Result 1',
-							album: { images: [{ url: '/images/icons/pulseroom-logo.svg' }] },
-							artists: [{ name: 'Artist 1' }],
-							duration_ms: 200000
-						},
-						{
-							id: 'mock_t2',
-							name: 'Search Result 2',
-							album: { images: [{ url: '/images/icons/pulseroom-logo.svg' }] },
-							artists: [{ name: 'Artist 2' }],
-							duration_ms: 210000
-						}
-					]
-				}
+		if (token !== 'dev_mock_token') {
+			return axios({
+				method: 'POST',
+				url: 'https://api.spotify.com/v1/me/player/next',
+				headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 			});
 		}
-		return axios({
-			method: 'GET',
-			url: `https://api.spotify.com/v1/search?q=${track}&type=track&limit=20`,
-			headers: {
-				Authorization: 'Bearer ' + token
-			}
+		return mockResponse({ success: true });
+	},
+
+	trackSearch: (token, query) => {
+		if (token !== 'dev_mock_token') {
+			return axios({
+				method: 'GET',
+				url: `https://api.spotify.com/v1/search?q=${query}&type=track&limit=20`,
+				headers: { Authorization: `Bearer ${token}` }
+			});
+		}
+		const results = catalogue.filter(t => t.name.toLowerCase().includes(query.toLowerCase()));
+		return mockResponse({
+			tracks: { items: results.map(toTrackResult) }
 		});
 	},
+
 	getPlaylistTracks: (token, playlistId) => {
-		if (token === 'dev_mock_token') {
-			return mockResponse({
-				items: [
-					{
-						track: {
-							id: 'mock_pt1',
-							name: 'Mock Playlist Track 1',
-							album: { images: [{ url: '/images/icons/pulseroom-logo.svg' }] },
-							artists: [{ name: 'Artist 1' }],
-							duration_ms: 200000
-						}
-					},
-					{
-						track: {
-							id: 'mock_pt2',
-							name: 'Mock Playlist Track 2',
-							album: { images: [{ url: '/images/icons/pulseroom-logo.svg' }] },
-							artists: [{ name: 'Artist 2' }],
-							duration_ms: 180000
-						}
-					}
-				]
+		if (token !== 'dev_mock_token') {
+			return axios({
+				method: 'GET',
+				url: `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100`,
+				headers: { Authorization: `Bearer ${token}` }
 			});
 		}
-		return axios({
-			method: 'GET',
-			url: `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100`,
-			headers: {
-				Authorization: 'Bearer ' + token
-			}
+		const tracks = catalogue.filter(t => t.genre === playlistId);
+		return mockResponse({
+			items: tracks.map(track => ({ track: toTrackResult(track) }))
 		});
 	}
 };

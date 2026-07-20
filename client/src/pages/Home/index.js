@@ -26,7 +26,6 @@ import globalUtils from '../../utils/globalUtils';
 
 const Home = () => {
   const [user, setUser] = useState(null);
-  
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
   const [spotifyAlert, setSpotifyAlert] = useState(false);
   const [playlistAlert, setPlaylistAlert] = useState(false);
@@ -45,7 +44,7 @@ const Home = () => {
       return;
     }
     if (token === 'dev_mock_token') {
-      setUser({ name: 'Nikhil (Dev Mode)', id: 'dev123', image: '/images/icons/pulseroom-logo.svg' });
+      setUser({ name: 'Demo Listener', id: 'demo', image: '/images/icons/pulseroom-logo.svg' });
       return;
     }
     const currentUser = await spotifyHelpers.user(token);
@@ -59,17 +58,10 @@ const Home = () => {
   };
 
   const handlePlaylists = async token => {
-    if (token === 'dev_mock_token') {
-      const mockPlaylists = [
-        { id: 'mock1', name: 'Chill Vibes (Mock)', images: [{ url: '/images/icons/pulseroom-logo.svg' }] },
-        { id: 'mock2', name: 'Workout Mix (Mock)', images: [{ url: '/images/icons/pulseroom-logo.svg' }] },
-        { id: 'mock3', name: 'Late Night (Mock)', images: [{ url: '/images/icons/pulseroom-logo.svg' }] },
-        { id: 'mock4', name: 'Top 50 (Mock)', images: [{ url: '/images/icons/pulseroom-logo.svg' }] }
-      ];
-      setSlides(globalUtils.configureSlides(mockPlaylists, 8));
-      return;
-    }
     const playlists = await utils.getPlaylists(token);
+if (playlists) {
+  setSlides(globalUtils.configureSlides(playlists, 8));
+}
 
     if (playlists[0]) {
       
@@ -118,7 +110,7 @@ const Home = () => {
     
     await createPlaylistRoom().then(roomHex => {
       renderCenterAlert(config.centerAlert.clear);
-      globalConfigs.addRoomToURL(window.location.href, token, roomHex);
+      globalUtils.addRoomToURL(window.location.href, token, roomHex);
     });
   };
 
@@ -133,7 +125,7 @@ const Home = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsMinLoading(false);
-    }, 2000);
+    }, 650);
     return () => clearTimeout(timer);
   }, []);
 
@@ -144,10 +136,11 @@ const Home = () => {
     }
     if (token && !user && !authError) {
       if (spinnerDisplay) setSpinnerDisplay(false);
-
       handleUser();
-      handlePlaylists(token);
-      verifyTrackPlaying(token);
+      if (token !== 'dev_mock_token') {
+        handlePlaylists(token);
+        verifyTrackPlaying(token);
+      }
     }
   }, [token, user, authError]);
 
@@ -175,10 +168,10 @@ const Home = () => {
           </div>
 
           <h1 style={{ fontSize: '1.65rem', fontWeight: '800', color: '#ffffff', margin: '16px 0 10px', letterSpacing: '-0.5px' }}>
-            Connecting to Pulseroom...
+            Preparing your Local Demo…
           </h1>
           <p style={{ fontSize: '0.95rem', color: '#888888', lineHeight: '1.6', margin: '0 auto', maxWidth: '380px' }}>
-            Setting up your live audio room and syncing your Spotify profile...
+            Connecting to the local room engine and loading the demo catalogue.
           </p>
         </div>
       </div>
@@ -288,17 +281,7 @@ const Home = () => {
 
   if (token === 'dev_mock_token') {
     return (
-      <DevDashboard 
-        user={user} 
-        slides={slides} 
-        onJoinRoom={(roomHex) => {
-          globalUtils.addRoomToURL(window.location.href, token, roomHex);
-        }}
-        onCreateRoom={(playlistId) => {
-          setSelectedPlaylist(playlistId);
-          playlistRoomHandler();
-        }}
-      />
+      <DevDashboard user={user} />
     );
   }
 

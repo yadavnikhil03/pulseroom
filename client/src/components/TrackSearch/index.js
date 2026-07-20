@@ -22,7 +22,6 @@ const TrackSearch = props => {
 			track.id,
 			`${track.name} - ${track.artist}`
 		);
-		await SpotifyAPI.addTrackToQueue(props.token, track.id);
 		props.setQueueTrigger(props.queueTrigger ? false : true);
 		searchBtnHandler.close();
 	};

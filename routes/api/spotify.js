@@ -17,6 +17,10 @@ const getClientSecret = () => (process.env.CLIENT_SECRET || process.env.client_s
 
 // ROUTE: /api/spotify/login
 router.get('/login', function (req, res) {
+  if (process.env.DEMO_MODE === 'true') {
+    const demoUrl = process.env.FRONTEND_URL || 'http://localhost:3000/home';
+    return res.redirect(demoUrl + '?access_token=dev_mock_token');
+  }
   const clientId = getClientId();
   if (!clientId) {
     return res.status(500).send('ERROR: Spotify Client ID is missing in .env file (please check CLIENT_ID or client_id and restart server).');

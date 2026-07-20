@@ -1,4 +1,6 @@
 process.removeAllListeners('warning');
+require('dotenv').config();
+
 const express = require('express'),
   morgan = require('morgan'),
   path = require('path'),
@@ -7,8 +9,6 @@ const express = require('express'),
   mongoose = require('mongoose'),
   routes = require('./routes'),
   handlers = require('./handlers');
-
-require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 8888;
@@ -23,16 +23,20 @@ app.use(morgan('tiny'));
 
 app.use(routes);
 
-mongoose
-  .connect(process.env.MONGODB_ATLAS_URI || 'mongodb://localhost/pulseroom', {
-    useNewUrlParser: true, 
-    useUnifiedTopology: true
-  })
-  .catch(err => console.log(err));
+if (process.env.DEMO_MODE === 'true') {
+  console.log('Demo mode enabled: using in-memory room storage.');
+} else {
+  mongoose
+    .connect(process.env.MONGODB_ATLAS_URI || 'mongodb://localhost/pulseroom', {
+      useNewUrlParser: true, 
+      useUnifiedTopology: true
+    })
+    .catch(err => console.log(err));
+}
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static('client/build'));
-  app.get('*', function (req, res) {
+  app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '/client/build', 'index.html'));
   });
 }
@@ -46,7 +50,6 @@ io.on('connection', socket => {
 
     socket.to(roomId).emit('user status', {
       text: `${user.name} joined...`,
-      roomId,
       user
     });
 
@@ -54,8 +57,16 @@ io.on('connection', socket => {
     io.in(roomId).emit('current users', currentUsers);
   });
 
+  socket.on('playback_update', ({ roomId, ...playbackState }) => {
+    io.in(roomId).emit('playback_update', playbackState);
+  });
+
+  socket.on('queue_update', ({ roomId }) => {
+    io.in(roomId).emit('queue_update', { roomId });
+  });
+
   socket.on('host song', ({ song, roomId }) => {
-    socket.emit('room song', song);
+    io.in(roomId).emit('room song', song);
   });
 
   socket.on('disconnect', () => {
@@ -63,7 +74,8 @@ io.on('connection', socket => {
 
     if (user) {
       io.to(user.room).emit('user status', { text: `${user.name} left...` });
-      io.to(user.room).emit('current users', handlers.getUsersInRoom(user.room));
+      const currentUsers = handlers.getUsersInRoom(user.room);
+      io.to(user.room).emit('current users', currentUsers);
 
       console.log('Client disconnected from server: ', user.socketId);
     }

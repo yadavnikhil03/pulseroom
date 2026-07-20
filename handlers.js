@@ -1,23 +1,41 @@
 const usersArray = [];
 
+const assignRoomHost = roomId => {
+  const roomUsers = usersArray.filter(user => user.room === roomId);
+  const currentHost = roomUsers.find(user => user.isHost);
+  const hostId = currentHost?.id || roomUsers[0]?.id;
+
+  roomUsers.forEach(user => {
+    user.isHost = user.id === hostId;
+  });
+};
+
 module.exports = {
-	addUser: (roomId, user, socket) => {
-		// Create user and set user room property to current roomId
-		const currentUser = { ...user };
-		currentUser.room = roomId;
-		currentUser.socketId = socket.id;
+  addUser: (roomId, user, socket) => {
+    const currentUser = {
+      ...user,
+      room: roomId,
+      socketId: socket.id,
+      isHost: false
+    };
 
-		if (!usersArray.filter(item => item.socketId === currentUser.socketId)[0])
-			usersArray.push(currentUser);
-	},
+    if (!usersArray.some(item => item.socketId === currentUser.socketId)) {
+      usersArray.push(currentUser);
+      assignRoomHost(roomId);
+    }
 
-	getUsersInRoom: currentRoom =>
-		usersArray.filter(user => user.room === currentRoom),
+    return currentUser;
+  },
 
-	removeUser: socket => {
-		// Find index of current socket/user and use to remove user from usersArray
-		const index = usersArray.findIndex(user => user.socketId === socket.id);
+  getUsersInRoom: currentRoom =>
+    usersArray.filter(user => user.room === currentRoom),
 
-		if (index !== -1) return usersArray.splice(index, 1)[0];
-	}
+  removeUser: socket => {
+    const index = usersArray.findIndex(user => user.socketId === socket.id);
+    if (index === -1) return undefined;
+
+    const removedUser = usersArray.splice(index, 1)[0];
+    assignRoomHost(removedUser.room);
+    return removedUser;
+  }
 };

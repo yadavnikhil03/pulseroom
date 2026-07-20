@@ -1,331 +1,339 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import queryString from 'query-string';
 import { io } from 'socket.io-client';
-
+import { ArrowLeft, Copy, Heart, Music2, Pause, Play, Plus, Radio, Search, SkipForward, Users, Volume2, VolumeX, WifiOff } from 'lucide-react';
 import { apiURL } from '../../App.config';
 import API from '../../utils/API';
-
-import Container from 'react-bootstrap/Container';
-import Row from 'react-bootstrap/Row';
-import Col from 'react-bootstrap/Col';
-import Alert from 'react-bootstrap/Alert';
-import Image from 'react-bootstrap/Image';
-import Carousel from 'react-bootstrap/Carousel';
-
-import TrackSearch from '../../components/TrackSearch';
-import Player from '../../components/Player';
-import ListGroup from 'react-bootstrap/esm/ListGroup';
-import RoomUser from '../../components/RoomUser';
-
-import spotifyHelpers from '../../utils/spotifyHelpers';
-
-import globalUtils from '../../utils/globalUtils';
-import utils from './utils';
+import localAudio from '../../utils/localAudio';
 import './style.css';
 
-const socket = io(apiURL);
+const formatTime = ms => {
+  const s = Math.max(0, Math.floor((ms || 0) / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+const getDemoUser = () => {
+  let id = window.sessionStorage.getItem('pulseroom-demo-user');
+  if (!id) {
+    id = `listener-${Math.random().toString(36).slice(2, 8)}`;
+    window.sessionStorage.setItem('pulseroom-demo-user', id);
+  }
+  return { id, name: `Listener ${id.slice(-4).toUpperCase()}`, image: '/images/icons/pulseroom-logo.svg' };
+};
 
 const Room = () => {
   const parsedUrl = queryString.parse(window.location.search);
-  const token = parsedUrl.access_token;
   const roomId = parsedUrl.room_id;
-
-  const [user, setUser] = useState(null);
-  const [queueTracks, setQueueTracks] = useState(null);
-  const [userTrack, setUserTrack] = useState(null);
+  const token = parsedUrl.access_token;
+  const isDemo = token === 'dev_mock_token';
+  const user = useMemo(getDemoUser, []);
+  const [room, setRoom] = useState(null);
   const [roomUsers, setRoomUsers] = useState([]);
-  const [roomHost, setRoomHost] = useState(null);
-  const [roomTrack, setRoomTrack] = useState(null);
-  const [slides, setSlides] = useState([]);
-  
-  const [leaveRoomAlert, setLeaveRoomAlert] = useState(false);
-  const [statusMsg, setStatusMsg] = useState('');
-  const [trackPlaying, setTrackPlaying] = useState(true);
-  const [queueTrigger, setQueueTrigger] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [message, setMessage] = useState('');
+  const [query, setQuery] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [seeking, setSeeking] = useState(false);
+  const [socket, setSocket] = useState(null);
+  const [connectionState, setConnectionState] = useState('connecting');
+  const progressRef = useRef(null);
 
-  const [track, setTrack] = useState({
-    name: '',
-    albumImages: [],
-    artists: [],
-    duration: 0,
-    progress: 0
-  });
+  const currentQueueTrack = room?.addedTracks.find(item => item.spotifyId === room.currentTrackId);
+  const currentTrack = currentQueueTrack?.metadata || localAudio.findById(room?.currentTrackId);
+  const currentUserPresence = roomUsers.find(roomUser => roomUser.id === user.id);
+  const isHost = Boolean(currentUserPresence?.isHost);
+  const liked = Boolean(currentQueueTrack?.likes.includes(user.id));
+  const catalogue = localAudio.getCatalogue();
+  const queuedTrackIds = new Set(room?.addedTracks.map(item => item.spotifyId));
+  const normalizedQuery = query.trim().toLowerCase();
+  const searchResults = normalizedQuery
+    ? catalogue.filter(track => (
+      !queuedTrackIds.has(track.id)
+      && `${track.name} ${track.artists.join(' ')} ${track.genre}`.toLowerCase().includes(normalizedQuery)
+    ))
+    : [];
 
-  const handleUser = async token => {
+  const loadRoom = async (quiet = false) => {
+    if (!roomId) { setNotFound(true); setLoading(false); return; }
     try {
-      const currentUser = await spotifyHelpers.user(token);
-      setUser(currentUser);
-    } catch (err) {
-      console.log(err);
-    }
+      const { data } = await API.getTracks(roomId);
+      setRoom(data);
+      setProgress(data.playback?.positionMs || 0);
+      setNotFound(false);
+    } catch (_) { setNotFound(true);
+    } finally { if (!quiet) setLoading(false); }
   };
 
-  const handleStatusMsg = message => {
-    setStatusMsg(message);
+  useEffect(() => { loadRoom(); }, [roomId]);
 
-    setTimeout(() => setStatusMsg(''), 2000);
-  };
+  useEffect(() => {
+    if (!roomId || !isDemo) return undefined;
+    const connection = io(apiURL);
+    setSocket(connection);
+    setConnectionState('connecting');
 
-  const handleSockets = () => {
-    if (roomId && user) {
-      socket.emit('join room', roomId, user);
-      socket.on('user status', ({ text }) => handleStatusMsg(text));
-      socket.on('current users', currentUsers => {
-        if (currentUsers[0]) {
-          setRoomHost(currentUsers[0]);
-          setRoomUsers(currentUsers);
+    const joinRoom = () => {
+      setConnectionState('connected');
+      connection.emit('join room', roomId, user);
+    };
+    const refresh = () => loadRoom(true);
+    const updateUsers = users => setRoomUsers(users);
+    const status = ({ text }) => setMessage(text);
+    const markDisconnected = () => setConnectionState('disconnected');
+    const markReconnecting = () => setConnectionState('connecting');
+
+    connection.on('connect', joinRoom);
+    connection.on('disconnect', markDisconnected);
+    connection.io.on('reconnect_attempt', markReconnecting);
+    connection.on('current users', updateUsers);
+    connection.on('playback_update', refresh);
+    connection.on('queue_update', refresh);
+    connection.on('room song', refresh);
+    connection.on('user status', status);
+    return () => {
+      connection.off('connect', joinRoom);
+      connection.off('disconnect', markDisconnected);
+      connection.io.off('reconnect_attempt', markReconnecting);
+      connection.off('current users', updateUsers);
+      connection.off('playback_update', refresh);
+      connection.off('queue_update', refresh);
+      connection.off('room song', refresh);
+      connection.off('user status', status);
+      connection.disconnect();
+    };
+  }, [roomId, isDemo, user]);
+
+  // Keep local audio aligned with shared room state after remote play, pause, seek, or skip.
+  useEffect(() => {
+    let cancelled = false;
+    const synchronizeAudio = async () => {
+      try {
+        if (soundEnabled && room?.playback?.isPlaying && currentTrack) {
+          const audioState = localAudio.getState();
+          if (audioState.trackId !== currentTrack.id) {
+            await localAudio.play(currentTrack.id, room.playback.positionMs);
+          } else if (Math.abs(audioState.positionMs - room.playback.positionMs) > 1500) {
+            await localAudio.seek(room.playback.positionMs);
+            await localAudio.resume();
+          } else if (!audioState.isPlaying) {
+            await localAudio.resume();
+          }
+        } else {
+          localAudio.pause();
         }
-      });
-      socket.on('room song', track => {
-        setTrack(track);
-      });
-    }
-
-    socket.on('disconnect', () => socket.disconnect());
-  };
-
-  const handleCurrentRoomTrack = () => {
-    if (user && roomHost && user.id === roomHost.id && track) {
-      socket.emit('host song', { song: track, roomId: roomId });
-    }
-  };
-
-  const handleCurrentlyPlaying = async token => {
-    const { trackData, isPlaying, timeRemaining } = await utils.getCurrentTrack(token);
-
-    if (trackData) {
-      setTrack(trackData);
-      setTrackPlaying(isPlaying);
-      setUserTrack(trackData);
-
-      setTimeout(() => {
-        handleCurrentlyPlaying(token);
-      }, timeRemaining);
-    } else setTrackPlaying(false);
-  };
-
-  const handleRoomTracks = async id => {
-    try {
-      const { data } = await API.getTracks(id);
-
-      if (data && data.addedTracks[0]) {
-        setQueueTracks(data.addedTracks);
+      } catch (error) {
+        if (!cancelled) setMessage(error.message || 'Audio playback was blocked. Press Audio on and try again.');
       }
-    } catch (err) {
-      console.log(err);
-    }
-  };
+    };
+    synchronizeAudio();
+    return () => { cancelled = true; };
+  }, [soundEnabled, room?.playback?.isPlaying, room?.playback?.updatedAt, currentTrack?.id]);
 
-  const renderAvatarSlides = () => {
-    if (roomUsers[0]) setSlides(globalUtils.configureSlides(roomUsers, 3));
-  };
+  useEffect(() => { localAudio.setVolume(volume); }, [volume]);
 
-  const updateTrackInDB = async () => {
+  useEffect(() => {
+    localAudio.onTimeUpdate(ms => { if (!seeking) setProgress(ms); });
+    localAudio.onError(error => setMessage(error.message));
+    return () => {
+      localAudio.onTimeUpdate(null);
+      localAudio.onError(null);
+    };
+  }, [seeking]);
+
+  useEffect(() => {
+    if (!soundEnabled || !isHost || !room?.playback?.isPlaying) return undefined;
+    localAudio.onEnded(() => skipTrack());
+    return () => { localAudio.onEnded(null); };
+  }, [soundEnabled, isHost, room?.playback?.isPlaying, currentTrack?.id]);
+
+  const announce = eventName => socket?.emit(eventName, { roomId });
+  const errorMessage = (error, fallback) => error?.response?.data?.message || error?.message || fallback;
+
+  const togglePlayback = async () => {
+    if (!isHost || !room || !currentTrack) return;
+    const shouldPlay = !room.playback.isPlaying;
     try {
-      if (track && queueTracks) {
-        const trackPlaying = queueTracks.filter(item => item.spotifyId == track.id)[0];
-
-        if (trackPlaying && !trackPlaying.nowPlaying) {
-          await API.updateTrack(roomId, trackPlaying.spotifyId, 'now_playing');
-        }
-      }
-    } catch (err) {
-      console.log(err);
+      if (shouldPlay) await localAudio.play(currentTrack.id, progress);
+      else localAudio.pause();
+      setSoundEnabled(true);
+      const { data } = await API.updatePlayback(roomId, shouldPlay, progress);
+      setRoom(data);
+      announce('playback_update');
+      setMessage(shouldPlay ? 'Playback started.' : 'Playback paused.');
+    } catch (error) {
+      setMessage(errorMessage(error, 'Could not change playback.'));
     }
   };
 
-  useEffect(() => {
-    if (token && roomId) {
-      handleUser(token);
-      handleCurrentlyPlaying(token);
+  const skipTrack = async () => {
+    if (!isHost) return;
+    try {
+      const { data } = await API.advanceTrack(roomId);
+      setRoom(data);
+      setProgress(data.playback.positionMs || 0);
+      announce('playback_update');
+      announce('queue_update');
+    } catch (error) {
+      setMessage(errorMessage(error, 'Could not advance the queue.'));
     }
-  }, []);
+  };
 
-  useEffect(() => {
-    if (roomId) {
-      handleRoomTracks(roomId);
+  const toggleLike = async () => {
+    if (!currentTrack) return;
+    try {
+      const { data } = await API.updateTrack(roomId, currentTrack.id, liked ? 'unlike' : 'like', user.id);
+      setRoom(data);
+      announce('queue_update');
+    } catch (error) {
+      setMessage(errorMessage(error, 'Could not update the like.'));
     }
-  }, [queueTrigger]);
+  };
 
-  useEffect(() => {
-    updateTrackInDB();
-  }, [track, queueTracks]);
+  const addTrack = async track => {
+    try {
+      const { data } = await API.addTrack(roomId, track.id, `${track.name} - ${track.artists[0]}`);
+      setRoom(data);
+      setMessage(`${track.name} added to the shared queue.`);
+      announce('queue_update');
+    } catch (error) {
+      setMessage(errorMessage(error, `${track.name} could not be added.`));
+    }
+  };
 
-  useEffect(() => {
-    handleSockets();
-  }, [user]);
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setMessage('Room link copied. Open it in a second tab.');
+    } catch (_) {
+      setMessage('Copy was blocked. Select the URL from your browser address bar.');
+    }
+  };
 
-  useEffect(() => {
-    handleCurrentRoomTrack();
-  }, [user, roomHost]);
+  const toggleSound = async () => {
+    try {
+      if (soundEnabled) {
+        localAudio.pause();
+        setSoundEnabled(false);
+      } else {
+        if (room.playback.isPlaying && currentTrack) await localAudio.play(currentTrack.id, progress);
+        setSoundEnabled(true);
+      }
+    } catch (error) {
+      setMessage(errorMessage(error, 'Audio could not be enabled.'));
+    }
+  };
 
-  useEffect(() => {
-    renderAvatarSlides();
-  }, [roomUsers]);
+  const handleSeek = async newProgress => {
+    if (!isHost || !currentTrack) return;
+    setSeeking(true);
+    setProgress(newProgress);
+    try {
+      await localAudio.seek(newProgress);
+      const { data } = await API.updatePlayback(roomId, room.playback.isPlaying, newProgress);
+      setRoom(data);
+      announce('playback_update');
+    } catch (error) {
+      setMessage(errorMessage(error, 'Could not seek this track.'));
+    } finally {
+      setSeeking(false);
+    }
+  };
 
-  return roomId && user && token ? (
-    <div>
-      <Container className='pt-5 pb-4'>
-        <Row>
-          {}
-          <Col xs={12} md={2} className='text-center'>
-            <Image className='brand-logo pulseroom-logo-pulse' src='./images/icons/pulseroom-logo.svg' alt='Pulseroom Logo' style={{ width: '70px', height: '70px' }} />
-          </Col>
+  const handleVolumeChange = e => setVolume(Number(e.target.value));
 
-          {}
-          <Col className='room-title' xs={12} md={4}>
-            <h1>Current Room: {roomId} </h1>
-          </Col>
+  if (!isDemo) return <div className='room-state'><h1>Spotify room</h1><p>This build is configured for Local Demo.</p><a href='/'>Return home</a></div>;
+  if (loading) return <div className='room-state'><div className='room-loader' /><h1>Opening room…</h1></div>;
+  if (notFound) return <div className='room-state'><Radio size={42} /><h1>Room not found</h1><p>Invalid ID or server restarted.</p><a id='room-not-found-home' href='/home?access_token=dev_mock_token'>Return to Local Demo</a></div>;
 
-          {}
-          <Col className='track-search-container' xs={12} md={6}>
-            <TrackSearch
-              token={token}
-              roomId={roomId}
-              user={user}
-              handleRoomTracks={handleRoomTracks}
-              queueTrigger={queueTrigger}
-              setQueueTrigger={setQueueTrigger}
-            />
-            <button className='float-right' onClick={() => setLeaveRoomAlert(true)}>
-              Leave Room
-            </button>
-          </Col>
-        </Row>
-      </Container>
-      {}
-      <Row>
-        <Col xs={12}>
-          <div className='playlist-alert d-flex align-items-center'>
-            <Alert
-              variant='dark'
-              show={leaveRoomAlert}
-              onClose={() => setLeaveRoomAlert(false)}
-              dismissible
-            >
-              <p>Are you sure?</p>
-              <p>
-                Leaving this Room and joining again will affect your shared listening experience.
-              </p>
-              <button
-                onClick={() => {
-                  window.location = `/home?access_token=${token}`;
-                }}
-              >
-                Leave Room
-              </button>
-            </Alert>
+  const duration = currentTrack?.duration_ms || 1;
+
+  return (
+    <main className='demo-room-page'>
+      <nav className='room-nav'>
+        <a id='room-back-to-lobby' href='/home?access_token=dev_mock_token' className='room-back'><ArrowLeft size={17} /> Lobby</a>
+        <div className='room-brand'><Radio size={18} /> Pulseroom <span>Local Demo</span></div>
+        <div className={`room-live is-${connectionState}`}>
+          {connectionState === 'disconnected' ? <WifiOff size={15} /> : <span />}
+          {connectionState === 'connected' ? `Room ${roomId}` : connectionState === 'connecting' ? 'Connecting…' : 'Disconnected'}
+        </div>
+      </nav>
+      <header className='room-header'>
+        <div><p className='room-kicker'>Shared listening session</p><h1>{room.title}</h1><span className={`room-role is-${isHost ? 'host' : 'listener'}`}>{isHost ? 'You are the host' : 'Listening with host controls'}</span></div>
+        <div className='room-header-actions'>
+          <div className='listener-chip'><Users size={17} /> {roomUsers.length || 1} listening</div>
+          <button id='copy-room-link' type='button' onClick={copyLink}><Copy size={17} /> Copy link</button>
+        </div>
+      </header>
+      {connectionState === 'disconnected' && <div className='room-message is-warning' role='alert'><WifiOff size={17} /> Live sync is offline. Check the server or your connection; Pulseroom will retry automatically.</div>}
+      {message && <div className='room-message' role='status'>{message}</div>}
+      <section className='room-layout'>
+        <article className='now-playing-panel'>
+          <div className={`album-visual ${room.playback.isPlaying ? 'is-playing' : ''}`}>
+            <div className='album-orbit' /><Music2 size={70} />
+            <span>{currentTrack ? currentTrack.genre : 'queue complete'}</span>
           </div>
-        </Col>
-      </Row>
-      <Container>
-        <Row>
-          {}
-          <Col xs={6} md={6} className='text-center'>
-            <img
-              className='now-playing-img'
-              src={
-                track && track.albumImages[0]
-                  ? track.albumImages[0]
-                  : '/images/icons/pulseroom-logo.svg'
-              }
-              alt='Track album artwork'
+          <div className='player-copy'>
+            <div className='playback-label'><span /> {room.playback.isPlaying ? 'Now playing' : 'Ready to play'}</div>
+            <h2>{currentTrack?.name || 'End of queue'}</h2>
+            <p>{currentTrack?.artists[0] || 'Create another room to restart'}</p>
+          </div>
+          {currentTrack && <>
+            <input
+              ref={progressRef}
+              type='range'
+              className='room-progress'
+              min='0'
+              max={duration}
+              value={Math.min(progress, duration)}
+              disabled={!isHost}
+              onChange={event => { setSeeking(true); setProgress(Number(event.target.value)); }}
+              onMouseUp={event => handleSeek(Number(event.currentTarget.value))}
+              onTouchEnd={event => handleSeek(Number(event.currentTarget.value))}
+              onKeyUp={event => handleSeek(Number(event.currentTarget.value))}
+              aria-label='Track progress'
             />
-          </Col>
-
-          {}
-          <Col xs={6} md={6}>
-            <div className='play-queue'>
-              <h1>Play Queue</h1>
-
-              <ListGroup className='play-queue-list'>
-                {queueTracks ? (
-                  queueTracks.map(obj => (
-                    <ListGroup.Item
-                      className='play-queue-item'
-                      key={obj._id}
-                      id={obj.spotifyId}
-                      variant={obj.spotifyId === track.id ? 'warning' : 'dark'}
-                    >
-                      {obj.info}
-                    </ListGroup.Item>
-                  ))
-                ) : (
-                  <p className='queue-help'>Add a track to get started...</p>
-                )}
-              </ListGroup>
+            <div className='room-times'><span>{formatTime(progress)}</span><span>{formatTime(duration)}</span></div>
+            <div className='room-player-controls'>
+              <button id='like-current-track' type='button' className={liked ? 'liked' : ''} onClick={toggleLike} aria-label={liked ? 'Unlike track' : 'Like track'}><Heart size={20} fill={liked ? 'currentColor' : 'none'} /></button>
+              <button id='toggle-room-playback' type='button' className='primary-play' onClick={togglePlayback} disabled={!isHost} aria-label={room.playback.isPlaying ? 'Pause' : 'Play'}>{room.playback.isPlaying ? <Pause size={25} fill='currentColor' /> : <Play size={25} fill='currentColor' />}</button>
+              <button id='skip-room-track' type='button' onClick={skipTrack} disabled={!isHost} aria-label='Next track'><SkipForward size={21} /></button>
             </div>
-          </Col>
-        </Row>
-      </Container>
-      <Container>
-        <Row>
-          {}
-          <Col xs={12} sm={6} md={6}>
-            {!trackPlaying ? (
-              <Alert variant='success'>
-                <h5>To sync with the Room, open Spotify & play a track</h5>
-
-                <div className='d-flex justify-content-end'>
-                  <button
-                    className='alert-button'
-                    onClick={() => handleCurrentlyPlaying(token)}
-                    variant='outline-success'
-                  >
-                    Ready
-                  </button>
-                </div>
-              </Alert>
-            ) : null}
-
-            {}
-            {track.name && track.artists[0] && track.duration && track.progress ? (
-              <Player
-                token={token}
-                track={track}
-                trackPlaying={trackPlaying}
-                setTrackPlaying={setTrackPlaying}
-                handleCurrentlyPlaying={handleCurrentlyPlaying}
-                user={user}
-                roomId={roomId}
-                queueTracks={queueTracks}
-                queueTrigger={queueTrigger}
-                setQueueTrigger={setQueueTrigger}
-                
-                room={roomId}
-              />
-            ) : null}
-          </Col>
-          <Col xs={12} sm={6} md={6}>
-            {}
-            <Row>
-              <Carousel className='room-carousel' interval={3500} indicators={false}>
-                {slides[0]
-                  ? slides.map(slide => (
-                      <Carousel.Item key={`carousel-item-${slides.indexOf(slide)}`}>
-                        <Container>
-                          <Row>
-                            {slide.map(user => (
-                              <RoomUser
-                                key={user.id}
-                                user={user}
-                                avatar={user.image}
-                                name={user.name}
-                              />
-                            ))}
-                          </Row>
-                        </Container>
-                      </Carousel.Item>
-                    ))
-                  : null}
-              </Carousel>
-            </Row>
-            <Row>{statusMsg ? <p className='status-msg'>{statusMsg}</p> : null}</Row>
-          </Col>
-        </Row>
-      </Container>
-    </div>
-  ) : null;
+          </>}
+          <div className='audio-note'>
+            <button id='enable-local-sound' type='button' onClick={toggleSound}>{soundEnabled ? <Volume2 size={19} /> : <VolumeX size={19} />}<span>{soundEnabled ? 'Audio on' : 'Audio off'}</span></button>
+            <div className='volume-wrap'>
+              <Volume2 size={16} />
+              <input id='volume-slider' type='range' min='0' max='1' step='0.05' value={volume} onChange={handleVolumeChange} aria-label='Volume' />
+            </div>
+            <span className='host-hint'>{isHost ? 'Host · controls sync to all' : 'Listener · press Audio on to hear the host'}</span>
+          </div>
+        </article>
+        <aside className='queue-panel'>
+          <div className='queue-heading'><div><p className='room-kicker'>Add music</p><h2>Shared queue</h2></div><span>{room.addedTracks.length} tracks</span></div>
+          <div className='queue-search-wrap'><Search size={17} /><input id='local-track-search' value={query} onChange={event => setQuery(event.target.value)} placeholder='Search the local catalogue' autoComplete='off' /></div>
+          {normalizedQuery && <div className='search-results catalogue-results'>
+            {searchResults.length ? searchResults.map(track => (
+              <button key={track.id} type='button' onClick={() => { addTrack(track); setQuery(''); }}>
+                <span><strong>{track.name}</strong><small>{track.artists[0]} · {track.genre}</small></span><Plus size={17} />
+              </button>
+            )) : <p className='search-empty'>No available tracks match “{query.trim()}”.</p>}
+          </div>}
+          <ol className='queue-list'>
+            {room.addedTracks.map((item, index) => (
+              <li key={item._id} className={`${item.nowPlaying ? 'current' : ''} ${item.played ? 'played' : ''}`}>
+                <span className='queue-index'>{String(index + 1).padStart(2, '0')}</span>
+                <span className='queue-track'><strong>{item.metadata?.name || item.info.split(' - ')[0]}</strong><small>{item.metadata?.artists[0] || item.info.split(' - ')[1]}</small></span>
+                <span className='queue-state'>{item.nowPlaying ? <Radio size={16} /> : item.played ? 'Played' : formatTime(item.metadata?.duration_ms)}</span>
+              </li>
+            ))}
+          </ol>
+        </aside>
+      </section>
+    </main>
+  );
 };
 
 export default Room;
