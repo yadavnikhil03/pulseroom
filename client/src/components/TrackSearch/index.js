@@ -34,15 +34,18 @@ const TrackSearch = props => {
     const localResults = localAudio.getCatalogue().filter(track => (
       `${track.name} ${track.artists.join(' ')} ${track.genre}`.toLowerCase().includes(normalized)
     ));
+    setResults(localResults);
+    setMessage(localResults.length ? 'Local library results' : 'Searching the optional online library…');
     setBusy(true);
-    setMessage('');
     try {
       const { data } = await API.searchTracks(debouncedQuery);
-      setResults([...localResults, ...(data.results || [])]);
+      const remoteResults = (data.results || []).filter(remote => !localResults.some(local => local.id === remote.id));
+      setResults([...localResults, ...remoteResults]);
       if (data.message) setMessage(data.message);
+      else if (remoteResults.length) setMessage(`${localResults.length} local · ${remoteResults.length} online`);
     } catch (error) {
       setResults(localResults);
-      setMessage(error.response?.data?.message || 'Online search is unavailable. Showing matching local tracks.');
+      setMessage(localResults.length ? 'Online search unavailable · showing local library' : 'Online search unavailable.');
     } finally {
       setBusy(false);
     }

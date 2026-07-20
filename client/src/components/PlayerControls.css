@@ -1,0 +1,39 @@
+.room-player-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    margin: 32px 0;
+}
+
+.room-player-controls button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.room-player-controls button:hover {
+    color: var(--text-primary);
+}
+
+.room-player-controls .primary-play {
+    background: var(--accent-primary);
+    color: var(--bg-primary);
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 0 20px var(--accent-glow);
+    transition: transform 0.2s ease;
+}
+
+.room-player-controls .primary-play:hover {
+    transform: scale(1.05);
+}
+
+.room-player-controls button.liked {
+    color: var(--accent-primary);
+}

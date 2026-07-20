@@ -10,6 +10,7 @@ router.route('/').get(roomsController.findAll).post(roomsController.create);
 if (isDemoMode) {
   // Demo-only canonical playback endpoints must be declared before '/:id'.
   router.route('/:id/playback').put(roomsController.updatePlayback);
+  router.route('/:id/select').put(roomsController.switchTrack);
   router.route('/:id/advance').put(roomsController.advance);
 }
 

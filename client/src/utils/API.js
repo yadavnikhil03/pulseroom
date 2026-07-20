@@ -1,20 +1,28 @@
 import axios from 'axios';
 
+const REQUEST_TIMEOUT = 8000;
+
 export default {
-  getRooms: () => axios.get('/api/rooms'),
+  getRooms: () => axios.get('/api/rooms', { timeout: REQUEST_TIMEOUT }),
   createRoom: (roomId, collectionId, options = {}) => axios.post('/api/rooms', {
     room_id: roomId,
     collectionId,
     title: options.title,
     trackIds: options.trackIds
-  }),
-  searchTracks: query => axios.get(`/api/audius/search?q=${encodeURIComponent(query)}`),
-  getTracks: roomId => axios.get(`/api/rooms/${roomId}`),
+  }, { timeout: REQUEST_TIMEOUT }),
+  searchTracks: query => axios.get(`/api/audius/search?q=${encodeURIComponent(query)}`, { timeout: 5000 }),
+  getTracks: roomId => axios.get(`/api/rooms/${roomId}`, { timeout: REQUEST_TIMEOUT }),
   updatePlayback: (roomId, isPlaying, positionMs) => axios.put(
     `/api/rooms/${roomId}/playback`,
-    { isPlaying, positionMs }
+    { isPlaying, positionMs },
+    { timeout: REQUEST_TIMEOUT }
   ),
-  advanceTrack: roomId => axios.put(`/api/rooms/${roomId}/advance`),
+  switchTrack: (roomId, trackId, isPlaying = true) => axios.put(
+    `/api/rooms/${roomId}/select`,
+    { trackId, isPlaying },
+    { timeout: REQUEST_TIMEOUT }
+  ),
+  advanceTrack: roomId => axios.put(`/api/rooms/${roomId}/advance`, null, { timeout: REQUEST_TIMEOUT }),
   updateTrack: (roomId, trackId, type, user) => {
     const url = user
       ? `/api/rooms/${roomId}/track/${trackId}/${type}?user=${user}`

@@ -6,6 +6,7 @@ import { apiURL } from '../../App.config';
 import API from '../../utils/API';
 import localAudio from '../../utils/localAudio';
 import TrackSearch from '../../components/TrackSearch';
+import PlayerControls from '../../components/PlayerControls';
 import './style.css';
 
 const formatTime = ms => {
@@ -39,6 +40,7 @@ const Room = () => {
   const [seeking, setSeeking] = useState(false);
   const [socket, setSocket] = useState(null);
   const [connectionState, setConnectionState] = useState('connecting');
+  const [switchingTrackId, setSwitchingTrackId] = useState('');
   const progressRef = useRef(null);
 
   const currentQueueTrack = room?.addedTracks.find(item => item.spotifyId === room.currentTrackId);
@@ -212,21 +214,25 @@ const Room = () => {
   };
 
   const selectTrack = async trackId => {
+    if (!trackId || switchingTrackId || trackId === room.currentTrackId) return;
+    setSwitchingTrackId(trackId);
+    const selectedTrack = room.addedTracks.find(track => track.spotifyId === trackId)?.metadata;
+    setMessage(`Switching to ${selectedTrack?.name || 'selected track'}…`);
     try {
-      const { data: selectedRoom } = await API.updateNowPlaying(roomId, trackId);
-      const selectedTrack = selectedRoom.addedTracks.find(track => track.spotifyId === selectedRoom.currentTrackId)?.metadata;
-      if (!selectedTrack) throw new Error('The selected track is unavailable.');
-
-      const { data } = await API.updatePlayback(roomId, true, 0);
+      const { data } = await API.switchTrack(roomId, trackId, true);
+      const nextTrack = data.addedTracks.find(track => track.spotifyId === data.currentTrackId)?.metadata;
+      if (!nextTrack) throw new Error('The selected track is unavailable.');
       setRoom(data);
       setProgress(0);
       setSoundEnabled(true);
-      await localAudio.play(selectedTrack, 0);
+      await localAudio.play(nextTrack, 0);
       announce('playback_update');
       announce('queue_update');
-      setMessage(`Now playing ${selectedTrack.name}.`);
+      setMessage(`Now playing ${nextTrack.name}.`);
     } catch (error) {
-      setMessage(errorMessage(error, 'Could not select the track.'));
+      setMessage(errorMessage(error, 'Could not switch the track.'));
+    } finally {
+      setSwitchingTrackId('');
     }
   };
 
@@ -248,6 +254,15 @@ const Room = () => {
       setMessage('Room link copied. Open it in a second tab.');
     } catch (_) {
       setMessage('Copy was blocked. Select the URL from your browser address bar.');
+    }
+  };
+
+  const copyRoomCode = async () => {
+    try {
+      await navigator.clipboard.writeText(roomId);
+      setMessage('Room code copied. Share it with your listeners.');
+    } catch (_) {
+      setMessage('Room code: ' + roomId);
     }
   };
 
@@ -300,7 +315,7 @@ const Room = () => {
         <div className='room-brand'><Radio size={18} /> Pulseroom <span>Local Demo</span></div>
         <div className={`room-live is-${connectionState}`}>
           {connectionState === 'disconnected' ? <WifiOff size={15} /> : <span />}
-          {connectionState === 'connected' ? `Room ${roomId}` : connectionState === 'connecting' ? 'Connecting…' : 'Disconnected'}
+          {connectionState === 'connected' ? <button id='copy-room-code' className='room-code-chip' type='button' onClick={copyRoomCode} title='Copy room code'><small>Room code</small><strong>{roomId}</strong><Copy size={13} /></button> : connectionState === 'connecting' ? <span className='room-status-label'>Connecting…</span> : <span className='room-status-label'>Disconnected</span>}
         </div>
       </nav>
       <header className='room-header'>
@@ -310,8 +325,9 @@ const Room = () => {
           <button id='copy-room-link' type='button' onClick={copyLink}><Copy size={17} /> Copy link</button>
         </div>
       </header>
+
       {connectionState === 'disconnected' && <div className='room-message is-warning' role='alert'><WifiOff size={17} /> Live sync is offline. Check the server or your connection; Pulseroom will retry automatically.</div>}
-      {message && <div className='room-message' role='status'>{message}</div>}
+      <div className={`room-toast ${message ? 'is-visible' : ''}`} role='status'>{message}</div>
       <section className='room-layout'>
         <article className='now-playing-panel'>
           <div className={`album-visual ${room.playback.isPlaying ? 'is-playing' : ''}`}>
@@ -339,11 +355,14 @@ const Room = () => {
               aria-label='Track progress'
             />
             <div className='room-times'><span>{formatTime(progress)}</span><span>{formatTime(duration)}</span></div>
-            <div className='room-player-controls'>
-              <button id='like-current-track' type='button' className={liked ? 'liked' : ''} onClick={toggleLike} aria-label={liked ? 'Unlike track' : 'Like track'}><Heart size={20} fill={liked ? 'currentColor' : 'none'} /></button>
-              <button id='toggle-room-playback' type='button' className='primary-play' onClick={togglePlayback} disabled={!isHost} aria-label={room.playback.isPlaying ? 'Pause' : 'Play'}>{room.playback.isPlaying ? <Pause size={25} fill='currentColor' /> : <Play size={25} fill='currentColor' />}</button>
-              <button id='skip-room-track' type='button' onClick={skipTrack} disabled={!isHost} aria-label='Next track'><SkipForward size={21} /></button>
-            </div>
+            <PlayerControls
+              isHost={isHost}
+              isPlaying={room.playback.isPlaying}
+              liked={liked}
+              onTogglePlayback={togglePlayback}
+              onSkipTrack={skipTrack}
+              onToggleLike={toggleLike}
+            />
           </>}
           <div className='audio-note'>
             <button id='enable-local-sound' type='button' onClick={toggleSound}>{soundEnabled ? <Volume2 size={19} /> : <VolumeX size={19} />}<span>{soundEnabled ? 'Audio on' : 'Audio off'}</span></button>
@@ -358,18 +377,25 @@ const Room = () => {
           <div className='queue-heading'><div><p className='room-kicker'>Add music</p><h2>Shared queue</h2></div><span>{room.addedTracks.length} tracks</span></div>
           <TrackSearch onSelect={addTrack} />
           <ol className='queue-list'>
-            {room.addedTracks.map((item, index) => (
-              <li key={item._id} className={`${item.nowPlaying ? 'current' : ''} ${item.played ? 'played' : ''}`}>
-                <button type='button' className='queue-item-button' onClick={() => selectTrack(item.spotifyId)} disabled={item.nowPlaying} aria-label={`Play ${item.metadata?.name}`}>
+            {room.addedTracks.map((item, index) => {
+              const isSwitching = switchingTrackId === item.spotifyId;
+              return (
+              <li key={item._id} className={`${item.nowPlaying ? 'current' : ''} ${item.played ? 'played' : ''} ${isSwitching ? 'is-switching' : ''}`}>
+                <button type='button' className='queue-item-button' onClick={() => selectTrack(item.spotifyId)} disabled={item.nowPlaying || Boolean(switchingTrackId)} aria-label={`Play ${item.metadata?.name}`} aria-busy={isSwitching}>
                   <span className='queue-index'>{String(index + 1).padStart(2, '0')}</span>
                   <span className='queue-track'><strong>{item.metadata?.name || item.info.split(' - ')[0]}</strong><small>{item.metadata?.artists[0] || item.info.split(' - ')[1]}</small></span>
-                  <span className='queue-state'>{item.nowPlaying ? <Radio size={16} /> : item.played ? 'Played' : formatTime(item.metadata?.duration_ms)}</span>
+                  <span className='queue-state'>{isSwitching ? 'Switching…' : item.nowPlaying ? <Radio size={16} /> : item.played ? 'Played' : formatTime(item.metadata?.duration_ms)}</span>
                 </button>
               </li>
-            ))}
+            );})}
           </ol>
         </aside>
       </section>
+      {currentTrack && <div className='mobile-player' aria-label='Mobile playback controls'>
+        <div><strong>{currentTrack.name}</strong><small>{currentTrack.artists[0]}</small></div>
+        <button type='button' onClick={toggleSound} aria-label={soundEnabled ? 'Mute local audio' : 'Enable local audio'}>{soundEnabled ? <Volume2 size={19} /> : <VolumeX size={19} />}</button>
+        <button type='button' className='mobile-player-primary' onClick={togglePlayback} disabled={!isHost} aria-label={room.playback.isPlaying ? 'Pause' : 'Play'}>{room.playback.isPlaying ? <Pause size={20} fill='currentColor' /> : <Play size={20} fill='currentColor' />}</button>
+      </div>}
     </main>
   );
 };

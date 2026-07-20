@@ -139,6 +139,17 @@ module.exports = {
     return res.json(snapshot(room));
   },
 
+  switchTrack: (req, res) => {
+    const room = ensureRoom(req.params.id, res);
+    if (!room) return;
+    if (!selectTrack(room, req.body.trackId, 0)) {
+      return res.status(404).json({ message: 'Track was not found' });
+    }
+    room.playback.isPlaying = req.body.isPlaying !== false;
+    room.playback.updatedAt = now();
+    return res.json(snapshot(room));
+  },
+
   advance: (req, res) => {
     const room = ensureRoom(req.params.id, res);
     if (!room) return;
