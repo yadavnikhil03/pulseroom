@@ -6,9 +6,10 @@ import Navbar from '../../components/Navbar';
 import { useAuth } from '../../hooks/AuthContext';
 import { useToast } from '../../components/Toast';
 import { setAccessToken } from '../../utils/authApi';
-import spotifyAuth from '../../utils/spotifyAuth';
+
 import SpotifyAPI from '../../utils/SpotifyAPI';
 import API from '../../utils/API';
+import { apiURL } from '../../App.config';
 import './style.css';
 
 const Home = () => {
@@ -61,7 +62,11 @@ const Home = () => {
         }
       }).catch(() => {});
     } catch (error) {
-      if (error.response?.status === 401) return spotifyAuth.logout();
+      if (error.response?.status === 401) {
+        // No Spotify session — just show the connect prompt (don't redirect)
+        setAuthError('spotify_not_connected');
+        return;
+      }
       setAuthError(error.response?.data?.message || error.message || 'An unknown error occurred.');
     } finally {
       setIsLoading(false);
@@ -76,14 +81,51 @@ const Home = () => {
     return (
       <>
         <Navbar />
-        <div className='demo-lobby is-loading' aria-label='Loading Spotify dashboard'>
-        <div className='demo-lobby-ambient' aria-hidden='true' />
-        <div className='pulseroom-loader-container'>
-          {[...Array(5)].map((_, i) => <div key={i} className='pulseroom-bar' />)}
+        <div className="home-page">
+          <div className="bg-orb bg-orb-1" aria-hidden="true" />
+          <div className="bg-orb bg-orb-2" aria-hidden="true" />
+          <div className="bg-orb bg-orb-3" aria-hidden="true" />
+          <div className="home-hero">
+            <div className="pulseroom-loader-container">
+              {[...Array(5)].map((_, i) => <div key={i} className="pulseroom-bar" />)}
+            </div>
+            <p style={{ textAlign: 'center', marginTop: 20, color: 'rgba(255,255,255,0.6)', fontSize: '0.92rem' }}>
+              Connecting to Pulseroom&hellip;
+            </p>
+          </div>
         </div>
-        <h1 className='loading-text-header'>Connecting to Pulseroom…</h1>
-        <p>Authenticating your Spotify session and preparing the lobby.</p>
-      </div>
+      </>
+    );
+  }
+
+  if (authError === 'spotify_not_connected') {
+    return (
+      <>
+        <Navbar />
+        <div className="home-page">
+          <div className="bg-orb bg-orb-1" aria-hidden="true" />
+          <div className="bg-orb bg-orb-2" aria-hidden="true" />
+          <div className="bg-orb bg-orb-3" aria-hidden="true" />
+          <div className="home-hero">
+            <h1 className="home-banner">
+              Welcome to <span style={{ background: 'linear-gradient(135deg, #00d4ff, #8a2be2, #ff007f)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Pulseroom</span>
+            </h1>
+            <p className="home-subtitle">
+              Connect your Spotify to create shared listening rooms and enjoy music together in real-time.
+            </p>
+            <div className="home-container">
+              <div className="pulseroom-notice-card">
+                <h2 className="pulseroom-notice-title">Spotify Required</h2>
+                <p className="pulseroom-notice-text">
+                  You need to connect your Spotify account to use Pulseroom. Click below to get started.
+                </p>
+                <a href={`${apiURL}/api/spotify/login`} className="home-action-btn" style={{background: '#1db954', color: '#fff', boxShadow: '0 6px 18px rgba(29, 185, 84, 0.3)'}}>
+                  Connect with Spotify
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
       </>
     );
   }
@@ -92,15 +134,20 @@ const Home = () => {
     return (
       <>
         <Navbar />
-        <div className='demo-lobby is-error' aria-live='polite'>
-        <div className='demo-lobby-ambient' aria-hidden='true' />
-        <div className='auth-error-icon' aria-hidden='true'>
-          <svg viewBox='0 0 24 24'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z' /></svg>
+        <div className="home-page">
+          <div className="bg-orb bg-orb-1" aria-hidden="true" />
+          <div className="bg-orb bg-orb-2" aria-hidden="true" />
+          <div className="bg-orb bg-orb-3" aria-hidden="true" />
+          <div className="home-hero">
+            <div className="pulseroom-notice-card">
+              <h2 className="pulseroom-notice-title">Connection failed</h2>
+              <p className="pulseroom-notice-text">{authError}</p>
+              <a href="/" className="home-action-btn" style={{background: 'rgba(255,255,255,0.1)', color: '#fff'}}>
+                Back to home
+              </a>
+            </div>
+          </div>
         </div>
-        <h1>Connection failed</h1>
-        <p>{authError}</p>
-        <a href='/' className='demo-nav-link'>Back to home page</a>
-      </div>
       </>
     );
   }
@@ -115,7 +162,7 @@ const Home = () => {
             Welcome, <span className="welcome-username">{spotifyUser.name}</span>
           </h1>
           <p className="home-subtitle">
-            {accountUser ? `Signed in as ${accountUser.name} · ` : ''}
+            {accountUser ? `Signed in as ${accountUser.name} ┬╖ ` : ''}
             Create a listening room, share the link, and enjoy music together.
           </p>
           <div className="home-actions">
@@ -129,7 +176,7 @@ const Home = () => {
           <div className="home-account-info">
             {accountUser && (
               <span>
-                {accountUser.name} · <button onClick={accountLogout} className="home-logout-btn">Sign out</button>
+                {accountUser.name} ┬╖ <button onClick={accountLogout} className="home-logout-btn">Sign out</button>
               </span>
             )}
           </div>
@@ -157,7 +204,7 @@ const Home = () => {
                   <div className="home-room-card-glow" />
                   <h3 className="home-room-card-title">{room.title || 'Untitled Room'}</h3>
                   <span className="home-room-card-id">{room.room_id}</span>
-                  <span className="home-room-card-arrow">→</span>
+                  <span className="home-room-card-arrow">ΓåÆ</span>
                 </Link>
               ))}
             </div>

@@ -14,13 +14,9 @@ const withRefresh = async request => {
   try {
     return await request();
   } catch (error) {
-    if (error.response?.status !== 401) throw error;
-    // If the backend tells us the Spotify session expired, redirect to login
-    if (error.response?.data?.error === 'spotify_not_connected') {
-      window.location.href = `${apiURL}/api/spotify/login`;
-      return Promise.reject(error);
-    }
-    return request();
+    // If the backend tells us the Spotify session expired, throw the error
+    // so the caller can handle it (e.g. show a connect prompt).
+    throw error;
   }
 };
 
