@@ -13,7 +13,7 @@ import { apiURL } from '../../App.config';
 import './style.css';
 
 const Home = () => {
-  const { user: accountUser, logout: accountLogout } = useAuth();
+  const { user: accountUser, refresh: accountRefresh } = useAuth();
   const { addToast } = useToast();
   const [spotifyUser, setSpotifyUser] = useState(null);
   const [playlists, setPlaylists] = useState(null);
@@ -30,6 +30,7 @@ const Home = () => {
       if (parsedURL.google_auth === '1' && parsedURL.accessToken && parsedURL.refreshToken) {
         setGoogleLoading(true);
         setAccessToken(parsedURL.accessToken);
+        await accountRefresh();
         // Clean URL
         const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, '', cleanUrl);
@@ -173,14 +174,7 @@ const Home = () => {
               Join a Room
             </Link>
           </div>
-          <div className="home-account-info">
-            {accountUser && (
-              <span>
-                {accountUser.name} ┬╖ <button onClick={accountLogout} className="home-logout-btn">Sign out</button>
-              </span>
-            )}
-          </div>
-
+  
           {/* Connection Status */}
           <div className="home-status">
             <div className={`home-status-badge ${playerReady ? 'is-ready' : ''}`}>

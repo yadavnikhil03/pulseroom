@@ -20,6 +20,15 @@ export const AuthProvider = ({ children }) => {
   const value = useMemo(() => ({
     user,
     isBootstrapping,
+    refresh: async () => {
+      try {
+        const response = await refreshAccount();
+        acceptSession(response);
+      } catch {
+        setAccessToken(null);
+        setUser(null);
+      }
+    },
     login: credentials => loginAccount(credentials).then(acceptSession),
     register: details => registerAccount(details).then(acceptSession),
     logout: async () => {

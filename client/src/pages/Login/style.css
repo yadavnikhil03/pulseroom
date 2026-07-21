@@ -33,11 +33,11 @@
 .landing-copy { max-width:760px; }
 .landing-copy h1 { max-width:780px; margin:0; font-size:clamp(4rem,7.6vw,8.6rem); line-height:.88; letter-spacing:-.075em; font-weight:650; text-wrap:balance; animation:fadeSlideUp .8s ease .25s both; }
 .landing-intro { max-width:610px; margin:30px 0 0; color:rgba(239,244,242,.64); font-size:clamp(.98rem,1.35vw,1.12rem); line-height:1.75; animation:fadeSlideUp .8s ease .4s both; }
-.landing-actions { gap:12px; margin-top:34px; animation:fadeSlideUp .8s ease .55s both; }
-.landing-primary,.landing-secondary { min-height:50px; padding:0 20px; border-radius:8px; font-family:inherit; font-size:.85rem; font-weight:750; }
+.landing-actions { gap:12px; margin-top:34px; display:flex; justify-content:center; animation:fadeSlideUp .8s ease .55s both; }
+.landing-primary,.landing-secondary { min-height:56px; padding:0 48px; border-radius:10px; font-family:inherit; font-size:.95rem; font-weight:750; }
 .landing-primary { gap:10px; color:#07100c; background:var(--landing-lime); transition:transform .2s ease,box-shadow .2s ease; }
-.landing-secondary { display:grid; place-items:center; border:1px solid rgba(255,255,255,.18); color:rgba(255,255,255,.8); background:rgba(5,9,13,.32); backdrop-filter:blur(14px); cursor:pointer; }
-.landing-secondary:hover { color:#fff; border-color:rgba(255,255,255,.4); }
+.landing-secondary { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:0; color:#07100c; background:var(--landing-lime); cursor:pointer; transition:transform .2s ease,box-shadow .2s ease; }
+.landing-secondary:hover { color:#07100c; transform:translateY(-2px); box-shadow:0 12px 34px rgba(237,255,115,.15); }
 .landing-google { display:inline-flex; align-items:center; min-height:50px; padding:0 20px; border:1px solid rgba(255,255,255,.14); border-radius:8px; color:rgba(255,255,255,.88); background:rgba(255,255,255,.04); font-family:inherit; font-size:.85rem; font-weight:650; gap:8px; transition:background .2s,transform .2s,box-shadow .2s; }
 .landing-google:hover { color:#fff; background:rgba(255,255,255,.1); transform:translateY(-2px); box-shadow:0 8px 28px rgba(255,255,255,.06); }
 @keyframes fadeSlideUp { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
@@ -123,9 +123,22 @@
 .account-error { margin:0; color:#ffaaa3; font-size:.72rem; line-height:1.5; }
 .account-mode-switch { width:100%; margin-top:18px; border:0; color:rgba(255,255,255,.58); background:transparent; font:600 .73rem var(--font-geist); cursor:pointer; }
 .account-mode-switch:hover { color:#fff; }
+
+.account-oauth-buttons { display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
+.account-oauth-btn { display:flex; align-items:center; justify-content:center; gap:10px; min-height:50px; padding:0 18px; border:1px solid rgba(255,255,255,.14); border-radius:10px; color:#fff; background:rgba(255,255,255,.05); font:650 .82rem var(--font-geist); cursor:pointer; transition:transform .2s ease,background .2s ease,border-color .2s ease,box-shadow .2s ease; }
+.account-oauth-btn:hover { transform:translateY(-1px); }
+.account-oauth-btn svg { flex-shrink:0; }
+.account-oauth-spotify { border-color:rgba(30,215,96,.25); background:rgba(30,215,96,.08); }
+.account-oauth-spotify:hover { border-color:rgba(30,215,96,.5); background:rgba(30,215,96,.15); box-shadow:0 4px 24px rgba(30,215,96,.12); }
+.account-oauth-google { border-color:rgba(255,255,255,.14); background:rgba(255,255,255,.05); }
+.account-oauth-google:hover { border-color:rgba(255,255,255,.3); background:rgba(255,255,255,.1); box-shadow:0 4px 24px rgba(255,255,255,.06); }
+.account-divider { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+.account-divider::before,.account-divider::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.1); }
+.account-divider span { color:rgba(255,255,255,.32); font-size:.66rem; font-weight:550; text-transform:uppercase; letter-spacing:.06em; }
 @media(max-width:780px) {
   .account-nav-button { display:none; }
   .mobile-account-action { min-height:50px; margin-top:14px; padding:0 18px; border:1px solid var(--landing-lime); border-radius:8px; color:#07100c; background:var(--landing-lime); font:750 .82rem var(--font-geist); cursor:pointer; }
+  .account-oauth-btn { font-size:.76rem; min-height:46px; }
 }
 @media(max-width:480px) { .account-modal-backdrop { padding:0; place-items:stretch; } .account-modal { width:100%; min-height:100svh; display:flex; flex-direction:column; justify-content:center; border-radius:0; } }
 
