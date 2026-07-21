@@ -109,4 +109,4 @@ router.post('/logout', (req, res) => {
   return res.status(204).end();
 });
 
-module.exports = router;
+module.exports = { router, getSession, readCookie };

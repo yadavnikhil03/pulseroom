@@ -1,21 +1,25 @@
 import axios from 'axios';
-import spotifyAuth from './spotifyAuth';
+import { apiURL } from '../App.config';
 
-const spotify = axios.create({ baseURL: 'https://api.spotify.com/v1' });
+/**
+ * Spotify API wrapper.
+ * All calls are proxied through the backend to avoid CORS issues.
+ * The backend reads the Spotify session cookie and attaches the Bearer token server-side.
+ */
+const spotify = axios.create({ baseURL: `${apiURL}/api/spotify/proxy` });
 
-spotify.interceptors.request.use(async config => {
-  const token = await spotifyAuth.getAccessToken();
-  config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+// No token interceptor needed — the backend recognises the session cookie.
 
 const withRefresh = async request => {
   try {
     return await request();
   } catch (error) {
     if (error.response?.status !== 401) throw error;
-    spotifyAuth.clearAccessToken();
-    await spotifyAuth.getAccessToken();
+    // If the backend tells us the Spotify session expired, redirect to login
+    if (error.response?.data?.error === 'spotify_not_connected') {
+      window.location.href = `${apiURL}/api/spotify/login`;
+      return Promise.reject(error);
+    }
     return request();
   }
 };
