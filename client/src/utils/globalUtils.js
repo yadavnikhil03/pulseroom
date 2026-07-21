@@ -1,7 +1,7 @@
 const addRoomToURL = roomId => {
   const normalizedRoomId = String(roomId || '').trim();
   if (!normalizedRoomId) return;
-  window.location.assign(`/room?room_id=${encodeURIComponent(normalizedRoomId)}`);
+  window.location.assign(`/room?id=${encodeURIComponent(normalizedRoomId)}`);
 };
 
 const configureSlides = (items, rowLength) => {

@@ -1,0 +1,64 @@
+.error-boundary-page {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  background: #050505;
+  padding: 20px;
+}
+
+.error-boundary-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 400px;
+  padding: 40px;
+  border-radius: 16px;
+  background: #121212;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.error-boundary-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 138, 128, 0.1);
+  color: #ff8a80;
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin-bottom: 16px;
+}
+
+.error-boundary-card h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: #f0f0f0;
+}
+
+.error-boundary-card p {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+.error-boundary-card .home-action-btn {
+  min-height: 40px;
+  padding: 0 24px;
+  border: none;
+  border-radius: 8px;
+  background: #edff73;
+  color: #07100c;
+  font: 700 0.85rem inherit;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.error-boundary-card .home-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(237, 255, 115, 0.2);
+}

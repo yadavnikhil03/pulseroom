@@ -1,9 +1,12 @@
 html,
 body,
-#root {
+#root.App {
+  text-align: center;
   min-height: 100%;
   width: 100%;
 }
+
+/* Global loading spinner — now in index.css */
 
 body {
   min-width: 320px;

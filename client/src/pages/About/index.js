@@ -2,6 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, AudioLines, DatabaseZap, Radio, Users } from 'lucide-react';
 
+import Navbar from '../../components/Navbar';
+
 import './style.css';
 
 const DEMO_URL = '/home?access_token=dev_mock_token';
@@ -30,18 +32,8 @@ const steps = [
 function About() {
   return (
     <main className='about-page'>
+      <Navbar />
       <div className='about-ambient' aria-hidden='true' />
-
-      <nav className='about-nav' aria-label='About navigation'>
-        <Link id='about-brand' to='/' className='about-brand'>
-          <span className='about-brand-mark'><AudioLines size={19} /></span>
-          <span>Pulseroom</span>
-        </Link>
-        <div className='about-nav-status'><span /> Local demo available</div>
-        <Link id='about-launch-demo' to={DEMO_URL} className='about-nav-cta'>
-          Launch demo <ArrowRight size={16} />
-        </Link>
-      </nav>
 
       <section className='about-hero' aria-labelledby='about-heading'>
         <Link id='about-back-home' to='/' className='about-back'><ArrowLeft size={16} /> Back home</Link>

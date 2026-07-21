@@ -37,5 +37,23 @@ module.exports = {
     const removedUser = usersArray.splice(index, 1)[0];
     assignRoomHost(removedUser.room);
     return removedUser;
+  },
+
+  transferHost: (roomId, newHostSocketId) => {
+    const roomUsers = usersArray.filter(user => user.room === roomId);
+    roomUsers.forEach(user => {
+      user.isHost = user.socketId === newHostSocketId;
+    });
+    return roomUsers.find(user => user.socketId === newHostSocketId) || null;
+  },
+
+  kickUser: (roomId, socketIdToKick) => {
+    const index = usersArray.findIndex(
+      user => user.room === roomId && user.socketId === socketIdToKick
+    );
+    if (index === -1) return undefined;
+    const removedUser = usersArray.splice(index, 1)[0];
+    assignRoomHost(roomId);
+    return removedUser;
   }
 };

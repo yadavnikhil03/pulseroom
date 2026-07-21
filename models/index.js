@@ -1,3 +1,5 @@
 module.exports = {
-	Room: require('./room')
+  Room: require('./room'),
+  User: require('./user'),
+  RefreshToken: require('./refreshToken')
 };

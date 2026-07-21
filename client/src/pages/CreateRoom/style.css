@@ -104,6 +104,13 @@
   flex-grow: 1;
 }
 
+.sound-card.is-creating {
+  opacity: 0.55;
+  pointer-events: none;
+  cursor: default;
+  transform: scale(0.97);
+}
+
 .sound-card-btn {
   background: var(--card-accent);
   color: #050505;
@@ -230,4 +237,15 @@
     flex-wrap: wrap;
     gap: 20px;
   }
+}
+
+.create-room-error {
+  margin: 16px 0 0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  color: #ffaaa3;
+  background: rgba(255, 138, 128, 0.08);
+  border: 1px solid rgba(255, 138, 128, 0.15);
+  font-size: 0.82rem;
+  line-height: 1.5;
 }

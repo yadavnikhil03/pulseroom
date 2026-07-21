@@ -1,4 +1,4 @@
-@import './dev-style.css';
+/* @import removed — dev-style.css was only for the now-unused DevDashboard */
 
 .home-page {
   min-height: 100vh;
@@ -166,9 +166,75 @@
   justify-content: center;
   align-items: center;
   text-align: center;
-  min-height: 80vh; /* Make it take up most of the viewport */
+  min-height: 80vh;
   padding: 40px 20px;
   animation: fadeSlideUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.home-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.home-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 28px;
+  border-radius: 50px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  background: #edff73;
+  color: #050505;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(237, 255, 115, 0.25);
+}
+
+.home-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(237, 255, 115, 0.4);
+}
+
+.home-action-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+}
+
+.home-action-secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.home-account-info {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.home-logout-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(255, 255, 255, 0.2);
+  transition: color 0.2s;
+}
+
+.home-logout-btn:hover {
+  color: #ff8a80;
+  text-decoration-color: rgba(255, 138, 128, 0.4);
 }
 
 .home-banner {
@@ -696,6 +762,137 @@
   50% {
     transform: scaleY(1);
     opacity: 1;
+    opacity: 1;
   }
+}
+
+/* Home status badges */
+.home-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+.home-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.home-status-badge.is-connected {
+  color: #1DB954;
+  border-color: rgba(29, 185, 84, 0.25);
+  background: rgba(29, 185, 84, 0.06);
+}
+
+.home-status-badge.is-ready {
+  color: #edff73;
+  border-color: rgba(237, 255, 115, 0.25);
+  background: rgba(237, 255, 115, 0.06);
+}
+
+.home-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+.home-status-badge.is-ready .home-status-dot,
+.home-status-badge.is-connected .home-status-dot {
+  opacity: 1;
+  box-shadow: 0 0 6px currentColor;
+}
+
+/* Section title */
+.home-section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 14px 0;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+}
+
+/* Recent rooms */
+.home-recent-rooms {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 20px 60px;
+}
+
+.home-rooms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.home-room-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  text-decoration: none;
+  color: #fff;
+  overflow: hidden;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+
+.home-room-card:hover {
+  border-color: rgba(237, 255, 115, 0.2);
+  background: rgba(237, 255, 115, 0.04);
+  transform: translateY(-2px);
+}
+
+.home-room-card-glow {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 50% 0%, rgba(237, 255, 115, 0.03), transparent 60%);
+  pointer-events: none;
+}
+
+.home-room-card-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.home-room-card-id {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-family: monospace;
+}
+
+.home-room-card-arrow {
+  margin-top: auto;
+  align-self: flex-end;
+  font-size: 1.1rem;
+  color: rgba(237, 255, 115, 0.4);
+  transition: transform 0.2s, color 0.2s;
+}
+
+.home-room-card:hover .home-room-card-arrow {
+  transform: translateX(3px);
+  color: #edff73;
 }
 }

@@ -1,0 +1,59 @@
+.spotify-player-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin: 12px 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 0.82rem;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.spotify-player-bar.is-active {
+  border-color: rgba(29, 185, 84, 0.25);
+  background: rgba(29, 185, 84, 0.05);
+}
+
+.spotify-player-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.spotify-player-dot.live {
+  background: #1db954;
+  box-shadow: 0 0 6px rgba(29, 185, 84, 0.5);
+  animation: spotify-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes spotify-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.spotify-player-label {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.spotify-player-bar.is-active .spotify-player-label {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.spotify-player-device-id {
+  margin-left: auto;
+  font-family: monospace;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.spotify-player-loading {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.spotify-player-error {
+  color: #ff8a80;
+}

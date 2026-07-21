@@ -3,7 +3,7 @@ import ProgressBar from 'react-bootstrap/ProgressBar';
 
 import SpotifyAPI from '../../utils/SpotifyAPI';
 import API from '../../utils/API';
-import roomUtils from '../../pages/Room/utils';
+// import removed — Room/utils module does not exist
 import './style.css';
 
 const Player = props => {
